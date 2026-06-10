@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Health Report Tracker",
+  title: "BloodLens",
   description: "Private family health dashboard for tracking lab reports and trends",
 };
 

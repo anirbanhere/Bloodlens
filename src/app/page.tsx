@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <div className="flex flex-col flex-1 items-center justify-center min-h-screen bg-slate-50">
       <main className="text-center px-6">
-        <h1 className="text-3xl font-bold text-slate-800 mb-2">Health Report Tracker</h1>
+        <h1 className="text-3xl font-bold text-slate-800 mb-2">BloodLens</h1>
         <p className="text-slate-500 mb-8 max-w-sm mx-auto">
           Private family health dashboard. Track lab reports, view trends, and prepare doctor summaries.
         </p>

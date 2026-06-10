@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# SQLite dev database
+*.db
+
+# Uploaded files (stored on Railway Volume in production)
+data/

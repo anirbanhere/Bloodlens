@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Patient {
+  id         String   @id @default(cuid())
+  name       String
+  age        Int?
+  sex        String?
+  conditions String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  reports       Report[]
+  markerResults MarkerResult[]
+  healthEvents  HealthEvent[]
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  patientId  String
+  reportDate String
+  labName    String?
+  reportType String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  patient           Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  markerResults     MarkerResult[]
+  reportFiles       ReportFile[]
+  reportExtractions ReportExtraction[]
+}
+
+model ReportFile {
+  id               String   @id @default(cuid())
+  reportId         String
+  filePath         String
+  fileType         String
+  originalFilename String
+  displayName      String?
+  createdAt        DateTime @default(now())
+
+  report              Report               @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  reportExtractions   ReportExtraction[]
+  extractedCandidates ExtractedCandidate[]
+}
+
+model MarkerDefinition {
+  id            String   @id @default(cuid())
+  markerKey     String   @unique
+  canonicalName String
+  category      String
+  aliases       String
+  defaultUnit   String?
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  markerResults       MarkerResult[]
+  extractedCandidates ExtractedCandidate[]
+}
+
+model MarkerResult {
+  id            String   @id @default(cuid())
+  reportId      String
+  patientId     String
+  markerKey     String
+  markerName    String
+  value         Float
+  unit          String?
+  referenceLow  Float?
+  referenceHigh Float?
+  status        String?
+  sourceType    String   @default("manual")
+  sourceFileId  String?
+  userVerified  Boolean  @default(true)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  report           Report           @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  patient          Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  markerDefinition MarkerDefinition @relation(fields: [markerKey], references: [markerKey])
+}
+
+model ReportExtraction {
+  id               String   @id @default(cuid())
+  reportId         String
+  fileId           String
+  extractionMethod String
+  rawText          String
+  confidence       Float?
+  createdAt        DateTime @default(now())
+
+  report              Report               @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  file                ReportFile           @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  extractedCandidates ExtractedCandidate[]
+}
+
+model ExtractedCandidate {
+  id                     String   @id @default(cuid())
+  extractionId           String
+  reportId               String
+  fileId                 String
+  markerKey              String?
+  markerName             String
+  suggestedValue         Float?
+  suggestedUnit          String?
+  suggestedReferenceLow  Float?
+  suggestedReferenceHigh Float?
+  confidence             String
+  sourceText             String?
+  status                 String   @default("pending")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  extraction       ReportExtraction  @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+  file             ReportFile        @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  markerDefinition MarkerDefinition? @relation(fields: [markerKey], references: [markerKey])
+}
+
+model HealthEvent {
+  id        String   @id @default(cuid())
+  patientId String
+  eventDate String
+  eventType String
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}

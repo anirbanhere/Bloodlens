@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import MarkerEntry from '@/components/MarkerEntry'
+import FileSection from '@/components/FileSection'
 import DeleteReportButton from '@/components/DeleteReportButton'
 
 export const dynamic = 'force-dynamic'
@@ -40,6 +41,10 @@ export default async function ReportPage({
       </div>
 
       <MarkerEntry reportId={report.id} markers={report.markerResults} />
+
+      <div className="mt-6">
+        <FileSection reportId={report.id} files={report.reportFiles} />
+      </div>
     </div>
   )
 }

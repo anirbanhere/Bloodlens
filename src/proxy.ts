@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function proxy(request: NextRequest) {
+  // Allow Railway healthcheck probe through without auth
+  if (request.nextUrl.pathname === '/api/health') {
+    return NextResponse.next()
+  }
+
   const authHeader = request.headers.get('authorization')
 
   if (authHeader) {

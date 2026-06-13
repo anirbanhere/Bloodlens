@@ -7,6 +7,7 @@ type Candidate = {
   id: string
   markerName: string
   suggestedValue: number | null
+  suggestedValueText: string | null
   suggestedUnit: string | null
   suggestedReferenceLow: number | null
   suggestedReferenceHigh: number | null
@@ -143,7 +144,7 @@ export default function ExtractionReviewTable({
                     ) : (
                       <>
                         <td className="py-2 pr-3 text-slate-800">
-                          {c.suggestedValue ?? <span className="text-slate-400">—</span>}
+                          {c.suggestedValueText ?? c.suggestedValue ?? <span className="text-slate-400">—</span>}
                         </td>
                         <td className="py-2 pr-3 text-slate-600">
                           {c.suggestedUnit ?? <span className="text-slate-400">—</span>}
@@ -209,6 +210,7 @@ function EditRow({
   onCancel: () => void
 }) {
   const [value, setValue] = useState(candidate.suggestedValue?.toString() ?? '')
+  const [valueText, setValueText] = useState(candidate.suggestedValueText ?? '')
   const [unit, setUnit] = useState(candidate.suggestedUnit ?? '')
   const [refLow, setRefLow] = useState(candidate.suggestedReferenceLow?.toString() ?? '')
   const [refHigh, setRefHigh] = useState(candidate.suggestedReferenceHigh?.toString() ?? '')
@@ -216,6 +218,7 @@ function EditRow({
   function save() {
     onSave({
       suggestedValue: value ? parseFloat(value) : null,
+      suggestedValueText: valueText.trim() || null,
       suggestedUnit: unit || null,
       suggestedReferenceLow: refLow ? parseFloat(refLow) : null,
       suggestedReferenceHigh: refHigh ? parseFloat(refHigh) : null,
@@ -226,7 +229,10 @@ function EditRow({
 
   return (
     <>
-      <td className="py-1 pr-2"><input className={inp} value={value} onChange={(e) => setValue(e.target.value)} placeholder="value" /></td>
+      <td className="py-1 pr-2">
+        <input className={inp} value={value} onChange={(e) => setValue(e.target.value)} placeholder="value" />
+        <input className={`${inp} mt-1`} value={valueText} onChange={(e) => setValueText(e.target.value)} placeholder="label (e.g. 3+)" />
+      </td>
       <td className="py-1 pr-2"><input className={inp} value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="unit" /></td>
       <td className="py-1 pr-2">
         <span className="flex gap-1 items-center">

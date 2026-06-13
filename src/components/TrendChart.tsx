@@ -11,10 +11,12 @@ import {
   CartesianGrid,
   ReferenceArea,
 } from 'recharts'
+import { ordinalTick } from '@/lib/qualitative'
 
 export type TrendPoint = {
   date: string
-  value: number
+  value: number | null
+  valueText?: string | null
   lab: string | null
   reportId: string
 }
@@ -24,15 +26,27 @@ export default function TrendChart({
   unit,
   referenceLow,
   referenceHigh,
+  ordinal = false,
 }: {
   points: TrendPoint[]
   unit: string | null
   referenceLow: number | null
   referenceHigh: number | null
+  ordinal?: boolean
 }) {
   const router = useRouter()
 
-  const values = points.map((p) => p.value)
+  // Only points with a numeric value can be plotted.
+  const numericPoints = points.filter((p) => p.value != null)
+  const values = numericPoints.map((p) => p.value as number)
+  if (numericPoints.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500">
+        No numeric values to plot. See the history table below for recorded results.
+      </div>
+    )
+  }
+
   let min = Math.min(...values)
   let max = Math.max(...values)
   if (referenceLow != null) min = Math.min(min, referenceLow)
@@ -44,17 +58,22 @@ export default function TrendChart({
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <ResponsiveContainer width="100%" height={320}>
         <LineChart
-          data={points}
+          data={numericPoints}
           margin={{ top: 10, right: 20, bottom: 5, left: 0 }}
           onClick={(state) => {
             const idx = Number(state?.activeIndex)
-            const p = Number.isInteger(idx) ? points[idx] : undefined
+            const p = Number.isInteger(idx) ? numericPoints[idx] : undefined
             if (p?.reportId) router.push(`/reports/${p.reportId}`)
           }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} />
-          <YAxis domain={domain} tick={{ fontSize: 12, fill: '#64748b' }} width={50} />
+          <YAxis
+            domain={domain}
+            tick={{ fontSize: 12, fill: '#64748b' }}
+            width={ordinal ? 60 : 50}
+            tickFormatter={ordinal ? (v: number) => ordinalTick(v) : undefined}
+          />
           {referenceLow != null && referenceHigh != null && (
             <ReferenceArea
               y1={referenceLow}
@@ -67,7 +86,11 @@ export default function TrendChart({
             />
           )}
           <Tooltip
-            formatter={(value) => [`${value}${unit ? ` ${unit}` : ''}`, 'Value']}
+            formatter={(value, _name, item) => {
+              const text = item?.payload?.valueText
+              if (text) return [text, 'Value']
+              return [`${value}${unit ? ` ${unit}` : ''}`, 'Value']
+            }}
             labelFormatter={(label, payload) => {
               const lab = payload?.[0]?.payload?.lab
               return lab ? `${label} · ${lab}` : String(label)
@@ -84,10 +107,15 @@ export default function TrendChart({
           />
         </LineChart>
       </ResponsiveContainer>
-      {referenceLow != null && referenceHigh != null && (
+      {referenceLow != null && referenceHigh != null && !ordinal && (
         <p className="text-xs text-slate-400 mt-2 px-2">
           Green band = lab reference range ({referenceLow} – {referenceHigh}
           {unit ? ` ${unit}` : ''}) · Click a dot to open that report.
+        </p>
+      )}
+      {ordinal && (
+        <p className="text-xs text-slate-400 mt-2 px-2">
+          Scale: Negative · Trace · 1+ · 2+ · 3+ · 4+ · Click a dot to open that report.
         </p>
       )}
     </div>

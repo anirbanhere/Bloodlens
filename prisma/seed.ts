@@ -63,15 +63,39 @@ const markers = [
   { markerKey: 'sgpt', canonicalName: 'SGPT / ALT', category: 'Liver / General', aliases: ['sgpt', 'alt', 'alanine aminotransferase', 'alanine transaminase'], defaultUnit: 'U/L', description: 'ALT liver enzyme' },
   { markerKey: 'bilirubin', canonicalName: 'Total Bilirubin', category: 'Liver / General', aliases: ['bilirubin', 'total bilirubin', 's. bilirubin', 'serum bilirubin'], defaultUnit: 'mg/dL', description: 'Total bilirubin' },
   { markerKey: 'total_protein', canonicalName: 'Total Protein', category: 'Liver / General', aliases: ['total protein', 'serum total protein', 'protein total'], defaultUnit: 'g/dL', description: 'Total serum protein' },
+
+  // Urinalysis (urine routine — dipstick + physical)
+  { markerKey: 'urine_colour', canonicalName: 'Urine Colour', category: 'Urinalysis', aliases: ['colour', 'color'], defaultUnit: null, description: 'Urine colour', valueType: 'qualitative' },
+  { markerKey: 'urine_clarity', canonicalName: 'Urine Clarity', category: 'Urinalysis', aliases: ['clarity', 'appearance', 'turbidity'], defaultUnit: null, description: 'Urine clarity / appearance', valueType: 'qualitative' },
+  { markerKey: 'urine_ph', canonicalName: 'Urine pH', category: 'Urinalysis', aliases: ['ph'], defaultUnit: null, description: 'Urine pH', valueType: 'numeric' },
+  { markerKey: 'urine_specific_gravity', canonicalName: 'Specific Gravity', category: 'Urinalysis', aliases: ['specific gravity', 'sp gravity', 'sp. gr', 'spgr', 'sp gr'], defaultUnit: null, description: 'Urine specific gravity', valueType: 'numeric' },
+  { markerKey: 'urine_glucose', canonicalName: 'Urine Glucose', category: 'Urinalysis', aliases: ['glucose'], defaultUnit: null, description: 'Urine glucose (dipstick)', valueType: 'ordinal' },
+  { markerKey: 'urine_protein_dipstick', canonicalName: 'Urine Protein (dipstick)', category: 'Urinalysis', aliases: ['protein'], defaultUnit: null, description: 'Urine protein (dipstick) — proteinuria', valueType: 'ordinal' },
+  { markerKey: 'urine_blood', canonicalName: 'Urine Blood', category: 'Urinalysis', aliases: ['blood'], defaultUnit: null, description: 'Urine blood (dipstick)', valueType: 'ordinal' },
+  { markerKey: 'urine_ketones', canonicalName: 'Urine Ketones', category: 'Urinalysis', aliases: ['ketone bodies', 'ketones', 'ketone'], defaultUnit: null, description: 'Urine ketones (dipstick)', valueType: 'ordinal' },
+  { markerKey: 'urine_urobilinogen', canonicalName: 'Urobilinogen', category: 'Urinalysis', aliases: ['urobilinogen'], defaultUnit: null, description: 'Urine urobilinogen (dipstick)', valueType: 'ordinal' },
+  { markerKey: 'urine_bile_salt', canonicalName: 'Bile Salt', category: 'Urinalysis', aliases: ['bilesalt', 'bile salt', 'bile salts'], defaultUnit: null, description: 'Urine bile salt (dipstick)', valueType: 'ordinal' },
+  { markerKey: 'urine_bile_pigment', canonicalName: 'Bile Pigment', category: 'Urinalysis', aliases: ['bilepigment', 'bile pigment'], defaultUnit: null, description: 'Urine bile pigment (dipstick)', valueType: 'ordinal' },
+  { markerKey: 'urine_nitrite', canonicalName: 'Nitrite', category: 'Urinalysis', aliases: ['nitrite', 'nitrites'], defaultUnit: null, description: 'Urine nitrite (dipstick)', valueType: 'ordinal' },
+  { markerKey: 'urine_leucocytes', canonicalName: 'Leucocytes (dipstick)', category: 'Urinalysis', aliases: ['leucocytes', 'leukocytes', 'leucocyte esterase', 'leukocyte esterase'], defaultUnit: null, description: 'Urine leucocytes (dipstick)', valueType: 'ordinal' },
+
+  // Urine Microscopy (per high-power field counts)
+  { markerKey: 'urine_rbc_micro', canonicalName: 'Urine RBCs (microscopy)', category: 'Urine Microscopy', aliases: ['rbcs', 'rbc', 'red blood cells', 'red blood cell'], defaultUnit: '/HPF', description: 'Urine red cells per high-power field', valueType: 'numeric' },
+  { markerKey: 'urine_wbc_micro', canonicalName: 'Urine WBC (microscopy)', category: 'Urine Microscopy', aliases: ['wbc', 'wbcs', 'pus cells', 'white blood cells'], defaultUnit: '/HPF', description: 'Urine white cells per high-power field', valueType: 'numeric' },
+  { markerKey: 'urine_epithelial_cells', canonicalName: 'Epithelial Cells', category: 'Urine Microscopy', aliases: ['epithelial cells', 'epithelial cell', 'non squamous epithelial cells'], defaultUnit: '/HPF', description: 'Urine epithelial cells per high-power field', valueType: 'numeric' },
+  { markerKey: 'urine_hyaline_casts', canonicalName: 'Hyaline Casts', category: 'Urine Microscopy', aliases: ['hyaline casts', 'hyaline cast'], defaultUnit: '/HPF', description: 'Urine hyaline casts per high-power field', valueType: 'numeric' },
+  { markerKey: 'urine_pathological_casts', canonicalName: 'Pathological Casts', category: 'Urine Microscopy', aliases: ['pathological casts', 'pathological cast', 'granular casts'], defaultUnit: '/HPF', description: 'Urine pathological casts per high-power field', valueType: 'numeric' },
+  { markerKey: 'urine_crystals', canonicalName: 'Crystals', category: 'Urine Microscopy', aliases: ['crystals', 'crystal'], defaultUnit: '/HPF', description: 'Urine crystals per high-power field', valueType: 'numeric' },
 ]
 
 async function main() {
   console.log('Seeding marker definitions...')
   for (const m of markers) {
+    const valueType = (m as { valueType?: string }).valueType ?? 'numeric'
     await prisma.markerDefinition.upsert({
       where: { markerKey: m.markerKey },
-      update: { canonicalName: m.canonicalName, category: m.category, aliases: JSON.stringify(m.aliases), defaultUnit: m.defaultUnit, description: m.description },
-      create: { markerKey: m.markerKey, canonicalName: m.canonicalName, category: m.category, aliases: JSON.stringify(m.aliases), defaultUnit: m.defaultUnit, description: m.description },
+      update: { canonicalName: m.canonicalName, category: m.category, aliases: JSON.stringify(m.aliases), defaultUnit: m.defaultUnit, description: m.description, valueType },
+      create: { markerKey: m.markerKey, canonicalName: m.canonicalName, category: m.category, aliases: JSON.stringify(m.aliases), defaultUnit: m.defaultUnit, description: m.description, valueType },
     })
   }
   console.log(`Seeded ${markers.length} markers.`)

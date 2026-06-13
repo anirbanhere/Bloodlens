@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { computeStatus } from '@/lib/status'
+import { statusForType } from '@/lib/status'
 
 export async function POST(
   request: Request,
@@ -8,8 +8,10 @@ export async function POST(
   const { id: reportId } = await params
   const body = await request.json()
 
-  if (!body.markerKey || body.value == null || body.value === '') {
-    return Response.json({ error: 'markerKey and value are required' }, { status: 400 })
+  const hasValue = body.value != null && body.value !== ''
+  const hasValueText = typeof body.valueText === 'string' && body.valueText.trim() !== ''
+  if (!body.markerKey || (!hasValue && !hasValueText)) {
+    return Response.json({ error: 'markerKey and a value (or text value) are required' }, { status: 400 })
   }
 
   const report = await prisma.report.findUnique({ where: { id: reportId } })
@@ -20,7 +22,8 @@ export async function POST(
   })
   if (!definition) return Response.json({ error: 'Unknown marker' }, { status: 400 })
 
-  const value = Number(body.value)
+  const value = hasValue ? Number(body.value) : null
+  const valueText = hasValueText ? body.valueText.trim() : null
   const referenceLow = body.referenceLow !== '' && body.referenceLow != null ? Number(body.referenceLow) : null
   const referenceHigh = body.referenceHigh !== '' && body.referenceHigh != null ? Number(body.referenceHigh) : null
 
@@ -31,10 +34,11 @@ export async function POST(
       markerKey: body.markerKey,
       markerName: body.markerName?.trim() || definition.canonicalName,
       value,
+      valueText,
       unit: body.unit?.trim() || definition.defaultUnit,
       referenceLow,
       referenceHigh,
-      status: computeStatus(value, referenceLow, referenceHigh),
+      status: statusForType(definition.valueType, value, referenceLow, referenceHigh),
       sourceType: 'manual',
       userVerified: true,
       notes: body.notes?.trim() || null,

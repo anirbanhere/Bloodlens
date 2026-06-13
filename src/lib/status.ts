@@ -14,6 +14,31 @@ export function computeStatus(
   return 'normal'
 }
 
+// Dipstick / ordinal markers: any positive reading is "above range" (e.g. proteinuria),
+// a negative reading (ordinal 0) is "in range". Factual, non-diagnostic.
+export function statusForOrdinal(ordinal: number | null | undefined): MarkerStatus {
+  if (ordinal == null) return 'unknown'
+  return ordinal > 0 ? 'high' : 'normal'
+}
+
+/**
+ * Resolve status for any marker type, given its parsed value(s).
+ * - numeric:     compare to reference range
+ * - ordinal:     positive -> high, negative -> normal
+ * - qualitative: no status (—)
+ */
+export function statusForType(
+  valueType: string | null | undefined,
+  value: number | null | undefined,
+  referenceLow: number | null | undefined,
+  referenceHigh: number | null | undefined
+): MarkerStatus {
+  if (valueType === 'qualitative') return 'unknown'
+  if (valueType === 'ordinal') return statusForOrdinal(value)
+  if (value == null) return 'unknown'
+  return computeStatus(value, referenceLow, referenceHigh)
+}
+
 export const STATUS_LABELS: Record<MarkerStatus, string> = {
   high: 'Above range',
   low: 'Below range',

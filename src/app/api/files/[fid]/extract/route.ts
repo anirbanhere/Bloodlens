@@ -76,7 +76,17 @@ export async function POST(
 
   // Parse candidates against all marker definitions
   const defs = await prisma.markerDefinition.findMany()
-  const candidates = parseMarkers(rawText, defs)
+  const candidates = parseMarkers(
+    rawText,
+    defs.map((d) => ({
+      markerKey: d.markerKey,
+      canonicalName: d.canonicalName,
+      aliases: d.aliases,
+      defaultUnit: d.defaultUnit,
+      valueType: d.valueType,
+      category: d.category,
+    }))
+  )
 
   // Persist candidates
   await prisma.extractedCandidate.createMany({
@@ -87,6 +97,7 @@ export async function POST(
       markerKey: c.markerKey,
       markerName: c.markerName,
       suggestedValue: c.suggestedValue,
+      suggestedValueText: c.suggestedValueText,
       suggestedUnit: c.suggestedUnit,
       suggestedReferenceLow: c.suggestedReferenceLow,
       suggestedReferenceHigh: c.suggestedReferenceHigh,

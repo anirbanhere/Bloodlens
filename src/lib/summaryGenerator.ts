@@ -3,16 +3,16 @@
  * All language is factual — no diagnostic or interpretive statements.
  */
 import { prisma } from '@/lib/db'
-import { computeStatus } from '@/lib/status'
+import { statusForType } from '@/lib/status'
 
 export interface MarkerSummaryRow {
   markerKey: string
   markerName: string
   category: string
   unit: string | null
-  latest: { value: number; date: string; status: string | null; referenceLow: number | null; referenceHigh: number | null } | null
-  previous: { value: number; date: string } | null
-  change: number | null // positive = increased
+  latest: { value: number | null; valueText: string | null; date: string; status: string | null; referenceLow: number | null; referenceHigh: number | null } | null
+  previous: { value: number | null; valueText: string | null; date: string } | null
+  change: number | null // positive = increased (numeric markers only)
 }
 
 export interface PatientSummary {
@@ -52,24 +52,24 @@ export async function generatePatientSummary(patientId: string): Promise<Patient
   const previousReport = reports[1] ?? null
 
   // Build a map: markerKey → all results sorted by reportDate desc
-  const byKey = new Map<string, { value: number; date: string; unit: string | null; referenceLow: number | null; referenceHigh: number | null; markerName: string; category: string }[]>()
+  const byKey = new Map<string, { value: number | null; valueText: string | null; date: string; unit: string | null; referenceLow: number | null; referenceHigh: number | null; markerName: string }[]>()
 
   for (const report of reports) {
     for (const mr of report.markerResults) {
       if (!byKey.has(mr.markerKey)) byKey.set(mr.markerKey, [])
       byKey.get(mr.markerKey)!.push({
         value: mr.value,
+        valueText: mr.valueText,
         date: report.reportDate,
         unit: mr.unit,
         referenceLow: mr.referenceLow,
         referenceHigh: mr.referenceHigh,
         markerName: mr.markerName,
-        category: 'General',
       })
     }
   }
 
-  // Enrich category from definitions
+  // Enrich category + value type from definitions
   const defs = await prisma.markerDefinition.findMany()
   const defMap = new Map(defs.map((d) => [d.markerKey, d]))
 
@@ -80,7 +80,8 @@ export async function generatePatientSummary(patientId: string): Promise<Patient
     const latest = results[0]
     const previous = results[1] ?? null
 
-    const status = computeStatus(latest.value, latest.referenceLow, latest.referenceHigh)
+    const status = statusForType(def?.valueType, latest.value, latest.referenceLow, latest.referenceHigh)
+    const canChange = latest.value != null && previous?.value != null
 
     markers.push({
       markerKey,
@@ -89,13 +90,14 @@ export async function generatePatientSummary(patientId: string): Promise<Patient
       unit: latest.unit ?? def?.defaultUnit ?? null,
       latest: {
         value: latest.value,
+        valueText: latest.valueText,
         date: latest.date,
         status,
         referenceLow: latest.referenceLow,
         referenceHigh: latest.referenceHigh,
       },
-      previous: previous ? { value: previous.value, date: previous.date } : null,
-      change: previous != null ? Math.round((latest.value - previous.value) * 100) / 100 : null,
+      previous: previous ? { value: previous.value, valueText: previous.valueText, date: previous.date } : null,
+      change: canChange ? Math.round((latest.value! - previous!.value!) * 100) / 100 : null,
     })
   }
 

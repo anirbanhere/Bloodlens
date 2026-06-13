@@ -5,10 +5,13 @@
  * the user must review and confirm before anything is saved.
  */
 
+import { parseOrdinal } from './qualitative'
+
 export interface ParsedCandidate {
   markerKey: string | null
   markerName: string
   suggestedValue: number | null
+  suggestedValueText: string | null
   suggestedUnit: string | null
   suggestedReferenceLow: number | null
   suggestedReferenceHigh: number | null
@@ -21,7 +24,11 @@ export interface MarkerDef {
   canonicalName: string
   aliases: string // JSON array
   defaultUnit: string | null
+  valueType: string // numeric | ordinal | qualitative
+  category: string
 }
+
+const MICROSCOPY_CATEGORY = 'Urine Microscopy'
 
 /**
  * Normalise a string for matching while preserving the characters that matter
@@ -33,7 +40,7 @@ function normalise(s: string): string {
     .replace(/[‒-―]/g, '-') // figure/en/em dashes -> hyphen
     .replace(/(\d),(\d)/g, '$1$2') // thousands separators
     .toLowerCase()
-    .replace(/[^a-z0-9.%/µ\- ]/g, ' ')
+    .replace(/[^a-z0-9.%/µ+\- ]/g, ' ') // keep '+' for dipstick results (+, ++, +++)
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -96,12 +103,14 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
     if (!line) continue
     const normLine = normalise(line)
 
-    // Skip microscopy / cell-count rows — "/hpf" (per high-power field) and
-    // "microscopy" never appear in serum chemistry results, but their cell
-    // counts can collide with blood-count marker names (e.g. urine "WBC").
-    if (normLine.includes('hpf') || normLine.includes('microscopy')) continue
+    // "/hpf" (per high-power field) marks a urine-microscopy count row. Such
+    // rows only match microscopy markers; everywhere else, microscopy markers
+    // are excluded — this resolves the urine-vs-blood WBC/RBC alias collision.
+    const isMicroscopyRow = normLine.includes('hpf')
 
     for (const { alias, def } of aliasMap) {
+      const isMicroscopyDef = def.category === MICROSCOPY_CATEGORY
+      if (isMicroscopyRow !== isMicroscopyDef) continue
       if (!startsWithAlias(normLine, alias)) continue
       if (def.markerKey && seenKeys.has(def.markerKey)) break
 
@@ -112,7 +121,7 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
       // then search for the value only in the text that precedes it.
       let refLow: number | null = null
       let refHigh: number | null = null
-      let valueText = rest
+      let beforeRange = rest
       const rangeMatch = rest.match(RANGE_RE)
       if (rangeMatch && rangeMatch.index !== undefined) {
         const lo = parseFloat(rangeMatch[1])
@@ -120,23 +129,50 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
         if (isFinite(lo) && isFinite(hi) && lo < hi) {
           refLow = lo
           refHigh = hi
-          valueText = rest.slice(0, rangeMatch.index)
+          beforeRange = rest.slice(0, rangeMatch.index)
         }
       }
 
-      const value = firstValue(valueText)
-      const unit = def.defaultUnit ?? null
+      let value: number | null = null
+      let valueText: string | null = null
+      let confidence: 'high' | 'medium' | 'low' = 'low'
 
-      let confidence: 'high' | 'medium' | 'low'
-      if (value !== null && refLow !== null) confidence = 'high'
-      else if (value !== null) confidence = 'medium'
-      else confidence = 'low'
+      if (def.valueType === 'ordinal') {
+        // Dipstick: map Negative/Trace/1+..4+ to an ordinal; ignore numeric range.
+        const { ordinal, label } = parseOrdinal(rest)
+        refLow = null
+        refHigh = null
+        if (ordinal !== null) {
+          value = ordinal
+          valueText = label
+          confidence = 'high'
+        } else {
+          // Fallback: a bare numeric reading (or a mis-classified serum value).
+          const n = firstValue(beforeRange)
+          if (n !== null) { value = n; confidence = 'medium' }
+        }
+      } else if (def.valueType === 'qualitative') {
+        // Descriptive (colour, clarity): first token after the name is the value.
+        refLow = null
+        refHigh = null
+        const tok = rest.split(' ').find((t) => t.length > 0) ?? ''
+        if (tok) {
+          valueText = tok.charAt(0).toUpperCase() + tok.slice(1)
+          confidence = 'medium'
+        }
+      } else {
+        // Numeric
+        value = firstValue(beforeRange)
+        if (value !== null && refLow !== null) confidence = 'high'
+        else if (value !== null) confidence = 'medium'
+      }
 
       candidates.push({
         markerKey: def.markerKey,
         markerName: def.canonicalName,
         suggestedValue: value,
-        suggestedUnit: unit,
+        suggestedValueText: valueText,
+        suggestedUnit: def.defaultUnit ?? null,
         suggestedReferenceLow: refLow,
         suggestedReferenceHigh: refHigh,
         confidence,

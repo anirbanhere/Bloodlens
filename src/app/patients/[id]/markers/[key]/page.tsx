@@ -28,13 +28,16 @@ export default async function MarkerDetailPage({
   const points: TrendPoint[] = sorted.map((r) => ({
     date: r.report.reportDate,
     value: r.value,
+    valueText: r.valueText,
     lab: r.report.labName,
     reportId: r.reportId,
   }))
 
   const latest = sorted[sorted.length - 1]
   const previous = sorted[sorted.length - 2]
-  const change = latest && previous ? latest.value - previous.value : null
+  const change =
+    latest?.value != null && previous?.value != null ? latest.value - previous.value : null
+  const isOrdinal = definition.valueType === 'ordinal'
   // Use the most recent recorded reference range for the band
   const withRange = [...sorted].reverse().find((r) => r.referenceLow != null && r.referenceHigh != null)
 
@@ -58,13 +61,13 @@ export default async function MarkerDetailPage({
             <div className="bg-white rounded-xl border border-slate-200 p-4">
               <p className="text-xs text-slate-400">Latest ({latest.report.reportDate})</p>
               <p className="text-xl font-semibold text-slate-800 mt-1 tabular-nums">
-                {latest.value} <span className="text-sm font-normal text-slate-400">{latest.unit}</span>
+                {latest.valueText ?? latest.value} <span className="text-sm font-normal text-slate-400">{latest.unit}</span>
               </p>
             </div>
             <div className="bg-white rounded-xl border border-slate-200 p-4">
               <p className="text-xs text-slate-400">Previous</p>
               <p className="text-xl font-semibold text-slate-800 mt-1 tabular-nums">
-                {previous ? previous.value : '—'}
+                {previous ? (previous.valueText ?? previous.value) : '—'}
               </p>
             </div>
             <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -86,6 +89,7 @@ export default async function MarkerDetailPage({
             unit={latest.unit}
             referenceLow={withRange?.referenceLow ?? null}
             referenceHigh={withRange?.referenceHigh ?? null}
+            ordinal={isOrdinal}
           />
 
           <h2 className="font-semibold text-slate-700 mt-8 mb-3">History</h2>
@@ -109,7 +113,7 @@ export default async function MarkerDetailPage({
                       </Link>
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-medium">
-                      {r.value} <span className="text-slate-400 font-normal">{r.unit}</span>
+                      {r.valueText ?? r.value} <span className="text-slate-400 font-normal">{r.unit}</span>
                     </td>
                     <td className="px-4 py-2.5 text-slate-500">
                       {r.referenceLow != null || r.referenceHigh != null

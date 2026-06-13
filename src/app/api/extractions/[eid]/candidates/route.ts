@@ -22,6 +22,7 @@ export async function PATCH(
     candidateId: string
     markerName?: string
     suggestedValue?: number | null
+    suggestedValueText?: string | null
     suggestedUnit?: string | null
     suggestedReferenceLow?: number | null
     suggestedReferenceHigh?: number | null

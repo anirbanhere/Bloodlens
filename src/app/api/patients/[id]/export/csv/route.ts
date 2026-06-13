@@ -20,13 +20,14 @@ export async function GET(
     orderBy: [{ report: { reportDate: 'asc' } }, { markerName: 'asc' }],
   })
 
-  const header = 'date,lab,marker,value,unit,reference_low,reference_high,status,notes'
+  const header = 'date,lab,marker,value,value_text,unit,reference_low,reference_high,status,notes'
   const lines = results.map((r) =>
     [
       r.report.reportDate,
       r.report.labName,
       r.markerName,
       r.value,
+      r.valueText,
       r.unit,
       r.referenceLow,
       r.referenceHigh,

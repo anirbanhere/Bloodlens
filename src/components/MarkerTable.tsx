@@ -14,7 +14,7 @@ export type TableRow = {
   reportId: string
   reportDate: string
   labName: string | null
-  values: Record<string, { value: number; status: string | null }>
+  values: Record<string, { value: number | null; valueText: string | null; status: string | null }>
 }
 
 export default function MarkerTable({
@@ -41,7 +41,7 @@ export default function MarkerTable({
   function change(rowIdx: number, key: string): string | null {
     const cur = rows[rowIdx]?.values[key]?.value
     const prev = rows[rowIdx + 1]?.values[key]?.value
-    if (cur == null || prev == null) return null
+    if (cur == null || prev == null) return null // numeric-only; null for text values
     const diff = cur - prev
     if (diff === 0) return '±0'
     const rounded = Math.abs(diff) < 10 ? diff.toFixed(2).replace(/\.?0+$/, '') : Math.round(diff).toString()
@@ -113,7 +113,7 @@ export default function MarkerTable({
                     <td key={c.markerKey} className={`px-4 py-2.5 tabular-nums ${cellColor(cell?.status)}`}>
                       {cell ? (
                         <>
-                          {cell.value}
+                          {cell.valueText ?? cell.value}
                           {delta && <span className="block text-xs text-slate-400">{delta}</span>}
                         </>
                       ) : (

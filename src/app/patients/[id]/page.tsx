@@ -8,7 +8,8 @@ type MarkerSummary = {
   markerKey: string
   name: string
   unit: string | null
-  latest: number
+  latest: number | null
+  latestText: string | null
   latestDate: string
   previous: number | null
   status: string | null
@@ -56,6 +57,7 @@ export default async function PatientPage({
       name: latest.markerName,
       unit: latest.unit,
       latest: latest.value,
+      latestText: latest.valueText,
       latestDate: latest.report.reportDate,
       previous: previous?.value ?? null,
       status: latest.status,
@@ -75,7 +77,7 @@ export default async function PatientPage({
   const outsideTotal = summaries.filter((s) => s.status === 'high' || s.status === 'low').length
 
   function changeBadge(s: MarkerSummary) {
-    if (s.previous == null) return null
+    if (s.previous == null || s.latest == null) return null
     const diff = s.latest - s.previous
     if (diff === 0) return <span className="text-xs text-slate-400">stable</span>
     const txt = `${diff > 0 ? '+' : ''}${Number(diff.toFixed(2))} ${diff > 0 ? '↑' : '↓'}`
@@ -170,7 +172,7 @@ export default async function PatientPage({
                         </Link>
                         <span className="flex items-center gap-2 whitespace-nowrap">
                           <span className="font-medium tabular-nums text-slate-800">
-                            {m.latest}
+                            {m.latestText ?? m.latest}
                             {m.unit && <span className="text-xs font-normal text-slate-400"> {m.unit}</span>}
                           </span>
                           {changeBadge(m)}

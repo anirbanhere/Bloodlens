@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { computeStatus } from '@/lib/status'
+import { statusForType } from '@/lib/status'
 
 export async function PUT(
   request: Request,
@@ -8,10 +8,25 @@ export async function PUT(
   const { mid } = await params
   const body = await request.json()
 
-  const value = Number(body.value)
-  if (Number.isNaN(value)) {
-    return Response.json({ error: 'A numeric value is required' }, { status: 400 })
+  const existing = await prisma.markerResult.findUnique({ where: { id: mid } })
+  if (!existing) return Response.json({ error: 'Marker not found' }, { status: 404 })
+
+  const definition = await prisma.markerDefinition.findUnique({
+    where: { markerKey: existing.markerKey },
+  })
+  const valueType = definition?.valueType ?? 'numeric'
+
+  const hasValue = body.value != null && body.value !== ''
+  const hasValueText = typeof body.valueText === 'string' && body.valueText.trim() !== ''
+  if (!hasValue && !hasValueText) {
+    return Response.json({ error: 'A value (or text value) is required' }, { status: 400 })
   }
+
+  const value = hasValue ? Number(body.value) : null
+  if (value !== null && Number.isNaN(value)) {
+    return Response.json({ error: 'Value must be a number' }, { status: 400 })
+  }
+  const valueText = hasValueText ? body.valueText.trim() : null
   const referenceLow = body.referenceLow !== '' && body.referenceLow != null ? Number(body.referenceLow) : null
   const referenceHigh = body.referenceHigh !== '' && body.referenceHigh != null ? Number(body.referenceHigh) : null
 
@@ -19,10 +34,11 @@ export async function PUT(
     where: { id: mid },
     data: {
       value,
+      valueText,
       unit: body.unit?.trim() || null,
       referenceLow,
       referenceHigh,
-      status: computeStatus(value, referenceLow, referenceHigh),
+      status: statusForType(valueType, value, referenceLow, referenceHigh),
       notes: body.notes?.trim() || null,
     },
   })

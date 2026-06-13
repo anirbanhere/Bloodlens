@@ -3,25 +3,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { STATUS_LABELS, STATUS_CLASSES, type MarkerStatus } from '@/lib/status'
+import { ORDINAL_OPTIONS } from '@/lib/qualitative'
 
 type Definition = {
   markerKey: string
   canonicalName: string
   category: string
   defaultUnit: string | null
+  valueType: string
 }
 
 type MarkerRow = {
   id: string
   markerKey: string
   markerName: string
-  value: number
+  value: number | null
+  valueText: string | null
   unit: string | null
   referenceLow: number | null
   referenceHigh: number | null
   status: string | null
   notes: string | null
 }
+
+const inputCls =
+  'border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 export default function MarkerEntry({
   reportId,
@@ -35,6 +41,8 @@ export default function MarkerEntry({
   const [category, setCategory] = useState('')
   const [markerKey, setMarkerKey] = useState('')
   const [unit, setUnit] = useState('')
+  const [valueNum, setValueNum] = useState('')
+  const [valueText, setValueText] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -46,6 +54,10 @@ export default function MarkerEntry({
       .catch(() => setError('Could not load marker list'))
   }, [])
 
+  const defByKey = useMemo(
+    () => new Map(definitions.map((d) => [d.markerKey, d])),
+    [definitions]
+  )
   const categories = useMemo(
     () => [...new Set(definitions.map((d) => d.category))],
     [definitions]
@@ -55,10 +67,25 @@ export default function MarkerEntry({
     [definitions, category]
   )
 
+  const selectedType = defByKey.get(markerKey)?.valueType ?? 'numeric'
+
   function onMarkerSelect(key: string) {
     setMarkerKey(key)
-    const def = definitions.find((d) => d.markerKey === key)
+    const def = defByKey.get(key)
     setUnit(def?.defaultUnit ?? '')
+    setValueNum('')
+    setValueText('')
+  }
+
+  function buildValuePayload(type: string, num: string, text: string) {
+    if (type === 'ordinal') {
+      const opt = ORDINAL_OPTIONS.find((o) => o.label === text)
+      return { value: opt ? opt.ordinal : null, valueText: text || null }
+    }
+    if (type === 'qualitative') {
+      return { value: null, valueText: text || null }
+    }
+    return { value: num === '' ? null : Number(num), valueText: null }
   }
 
   async function addMarker(e: React.FormEvent<HTMLFormElement>) {
@@ -66,37 +93,31 @@ export default function MarkerEntry({
     setBusy(true)
     setError('')
     const form = e.currentTarget
-    const data = Object.fromEntries(new FormData(form))
+    const fd = new FormData(form)
+    const payload = buildValuePayload(selectedType, valueNum, valueText)
     const res = await fetch(`/api/reports/${reportId}/markers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...data, markerKey, unit }),
+      body: JSON.stringify({
+        markerKey,
+        unit,
+        ...payload,
+        referenceLow: fd.get('referenceLow'),
+        referenceHigh: fd.get('referenceHigh'),
+        notes: fd.get('notes'),
+      }),
     })
     setBusy(false)
     if (res.ok) {
       form.reset()
       setMarkerKey('')
       setUnit('')
+      setValueNum('')
+      setValueText('')
       router.refresh()
     } else {
       const body = await res.json().catch(() => ({}))
       setError(body.error ?? 'Could not save marker')
-    }
-  }
-
-  async function saveEdit(e: React.FormEvent<HTMLFormElement>, row: MarkerRow) {
-    e.preventDefault()
-    setBusy(true)
-    const data = Object.fromEntries(new FormData(e.currentTarget))
-    const res = await fetch(`/api/reports/${reportId}/markers/${row.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-    setBusy(false)
-    if (res.ok) {
-      setEditingId(null)
-      router.refresh()
     }
   }
 
@@ -106,8 +127,54 @@ export default function MarkerEntry({
     router.refresh()
   }
 
-  const inputCls =
-    'border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  // Value input that adapts to the marker's value type.
+  function ValueField() {
+    if (selectedType === 'ordinal') {
+      return (
+        <label className="text-xs text-slate-500">
+          Result *
+          <select
+            value={valueText}
+            onChange={(e) => setValueText(e.target.value)}
+            required
+            className={`${inputCls} block w-32 mt-1 bg-white`}
+          >
+            <option value="">Select…</option>
+            {ORDINAL_OPTIONS.map((o) => (
+              <option key={o.label} value={o.label}>{o.label}</option>
+            ))}
+          </select>
+        </label>
+      )
+    }
+    if (selectedType === 'qualitative') {
+      return (
+        <label className="text-xs text-slate-500">
+          Result *
+          <input
+            value={valueText}
+            onChange={(e) => setValueText(e.target.value)}
+            required
+            placeholder="e.g. Straw"
+            className={`${inputCls} block w-32 mt-1`}
+          />
+        </label>
+      )
+    }
+    return (
+      <label className="text-xs text-slate-500">
+        Value *
+        <input
+          value={valueNum}
+          onChange={(e) => setValueNum(e.target.value)}
+          type="number"
+          step="any"
+          required
+          className={`${inputCls} block w-24 mt-1`}
+        />
+      </label>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -130,37 +197,31 @@ export default function MarkerEntry({
                 editingId === m.id ? (
                   <tr key={m.id} className="bg-blue-50/40">
                     <td colSpan={6} className="px-4 py-3">
-                      <form onSubmit={(e) => saveEdit(e, m)} className="flex flex-wrap items-end gap-3">
-                        <span className="font-medium text-slate-700 mr-1">{m.markerName}</span>
-                        <label className="text-xs text-slate-500">
-                          Value
-                          <input name="value" type="number" step="any" required defaultValue={m.value} className={`${inputCls} block w-24 mt-1`} />
-                        </label>
-                        <label className="text-xs text-slate-500">
-                          Unit
-                          <input name="unit" defaultValue={m.unit ?? ''} className={`${inputCls} block w-24 mt-1`} />
-                        </label>
-                        <label className="text-xs text-slate-500">
-                          Ref low
-                          <input name="referenceLow" type="number" step="any" defaultValue={m.referenceLow ?? ''} className={`${inputCls} block w-20 mt-1`} />
-                        </label>
-                        <label className="text-xs text-slate-500">
-                          Ref high
-                          <input name="referenceHigh" type="number" step="any" defaultValue={m.referenceHigh ?? ''} className={`${inputCls} block w-20 mt-1`} />
-                        </label>
-                        <button type="submit" disabled={busy} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
-                          Save
-                        </button>
-                        <button type="button" onClick={() => setEditingId(null)} className="text-slate-500 px-2 py-1.5 text-sm hover:text-slate-700">
-                          Cancel
-                        </button>
-                      </form>
+                      <EditMarkerForm
+                        row={m}
+                        valueType={defByKey.get(m.markerKey)?.valueType ?? 'numeric'}
+                        busy={busy}
+                        onCancel={() => setEditingId(null)}
+                        onSave={async (body) => {
+                          setBusy(true)
+                          const res = await fetch(`/api/reports/${reportId}/markers/${m.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(body),
+                          })
+                          setBusy(false)
+                          if (res.ok) {
+                            setEditingId(null)
+                            router.refresh()
+                          }
+                        }}
+                      />
                     </td>
                   </tr>
                 ) : (
                   <tr key={m.id}>
                     <td className="px-4 py-2.5 font-medium text-slate-700">{m.markerName}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{m.value}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{m.valueText ?? m.value}</td>
                     <td className="px-4 py-2.5 text-slate-500">{m.unit ?? '—'}</td>
                     <td className="px-4 py-2.5 text-slate-500">
                       {m.referenceLow != null || m.referenceHigh != null
@@ -219,10 +280,7 @@ export default function MarkerEntry({
               ))}
             </select>
           </label>
-          <label className="text-xs text-slate-500">
-            Value *
-            <input name="value" type="number" step="any" required className={`${inputCls} block w-24 mt-1`} />
-          </label>
+          <ValueField />
           <label className="text-xs text-slate-500">
             Unit
             <input
@@ -250,5 +308,86 @@ export default function MarkerEntry({
         {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
       </form>
     </div>
+  )
+}
+
+function EditMarkerForm({
+  row,
+  valueType,
+  busy,
+  onSave,
+  onCancel,
+}: {
+  row: MarkerRow
+  valueType: string
+  busy: boolean
+  onSave: (body: Record<string, unknown>) => void
+  onCancel: () => void
+}) {
+  const [valueNum, setValueNum] = useState(row.value?.toString() ?? '')
+  const [valueText, setValueText] = useState(row.valueText ?? '')
+  const [unit, setUnit] = useState(row.unit ?? '')
+  const [refLow, setRefLow] = useState(row.referenceLow?.toString() ?? '')
+  const [refHigh, setRefHigh] = useState(row.referenceHigh?.toString() ?? '')
+
+  function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    let value: number | null = null
+    let text: string | null = null
+    if (valueType === 'ordinal') {
+      const opt = ORDINAL_OPTIONS.find((o) => o.label === valueText)
+      value = opt ? opt.ordinal : null
+      text = valueText || null
+    } else if (valueType === 'qualitative') {
+      text = valueText || null
+    } else {
+      value = valueNum === '' ? null : Number(valueNum)
+    }
+    onSave({ value, valueText: text, unit, referenceLow: refLow, referenceHigh: refHigh })
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
+      <span className="font-medium text-slate-700 mr-1">{row.markerName}</span>
+      {valueType === 'ordinal' ? (
+        <label className="text-xs text-slate-500">
+          Result
+          <select value={valueText} onChange={(e) => setValueText(e.target.value)} className={`${inputCls} block w-32 mt-1 bg-white`}>
+            <option value="">Select…</option>
+            {ORDINAL_OPTIONS.map((o) => (
+              <option key={o.label} value={o.label}>{o.label}</option>
+            ))}
+          </select>
+        </label>
+      ) : valueType === 'qualitative' ? (
+        <label className="text-xs text-slate-500">
+          Result
+          <input value={valueText} onChange={(e) => setValueText(e.target.value)} className={`${inputCls} block w-32 mt-1`} />
+        </label>
+      ) : (
+        <label className="text-xs text-slate-500">
+          Value
+          <input value={valueNum} onChange={(e) => setValueNum(e.target.value)} type="number" step="any" className={`${inputCls} block w-24 mt-1`} />
+        </label>
+      )}
+      <label className="text-xs text-slate-500">
+        Unit
+        <input value={unit} onChange={(e) => setUnit(e.target.value)} className={`${inputCls} block w-24 mt-1`} />
+      </label>
+      <label className="text-xs text-slate-500">
+        Ref low
+        <input value={refLow} onChange={(e) => setRefLow(e.target.value)} type="number" step="any" className={`${inputCls} block w-20 mt-1`} />
+      </label>
+      <label className="text-xs text-slate-500">
+        Ref high
+        <input value={refHigh} onChange={(e) => setRefHigh(e.target.value)} type="number" step="any" className={`${inputCls} block w-20 mt-1`} />
+      </label>
+      <button type="submit" disabled={busy} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
+        Save
+      </button>
+      <button type="button" onClick={onCancel} className="text-slate-500 px-2 py-1.5 text-sm hover:text-slate-700">
+        Cancel
+      </button>
+    </form>
   )
 }

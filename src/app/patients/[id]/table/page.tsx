@@ -53,7 +53,7 @@ export default async function MarkerTablePage({
       }
       rowMap.set(r.reportId, row)
     }
-    row.values[r.markerKey] = { value: r.value, status: r.status }
+    row.values[r.markerKey] = { value: r.value, valueText: r.valueText, status: r.status }
   }
   const rows = [...rowMap.values()].sort((a, b) => b.reportDate.localeCompare(a.reportDate))
 

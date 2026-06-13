@@ -151,10 +151,10 @@ export default async function SummaryPage({
                       <span className="hidden print:inline">{m.markerName}</span>
                     </td>
                     <td className="px-3 py-2.5 text-slate-800">
-                      {m.latest ? `${m.latest.value} ${m.unit ?? ''}` : '—'}
+                      {m.latest ? `${m.latest.valueText ?? m.latest.value} ${m.unit ?? ''}` : '—'}
                     </td>
                     <td className="px-3 py-2.5 text-slate-500">
-                      {m.previous ? `${m.previous.value} ${m.unit ?? ''}` : '—'}
+                      {m.previous ? `${m.previous.valueText ?? m.previous.value} ${m.unit ?? ''}` : '—'}
                     </td>
                     <td className="px-3 py-2.5"><ChangeArrow change={m.change} /></td>
                     <td className="px-3 py-2.5 text-slate-500 text-xs">

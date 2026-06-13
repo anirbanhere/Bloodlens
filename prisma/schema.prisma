@@ -60,6 +60,7 @@ model MarkerDefinition {
   aliases       String
   defaultUnit   String?
   description   String?
+  valueType     String   @default("numeric") // numeric | ordinal | qualitative
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -73,7 +74,8 @@ model MarkerResult {
   patientId     String
   markerKey     String
   markerName    String
-  value         Float
+  value         Float?
+  valueText     String?
   unit          String?
   referenceLow  Float?
   referenceHigh Float?
@@ -112,6 +114,7 @@ model ExtractedCandidate {
   markerKey              String?
   markerName             String
   suggestedValue         Float?
+  suggestedValueText     String?
   suggestedUnit          String?
   suggestedReferenceLow  Float?
   suggestedReferenceHigh Float?

@@ -27,6 +27,14 @@ export async function POST(
   const referenceLow = body.referenceLow !== '' && body.referenceLow != null ? Number(body.referenceLow) : null
   const referenceHigh = body.referenceHigh !== '' && body.referenceHigh != null ? Number(body.referenceHigh) : null
 
+  // Append manual entries after existing markers in this report.
+  const last = await prisma.markerResult.findFirst({
+    where: { reportId },
+    orderBy: { sortOrder: 'desc' },
+    select: { sortOrder: true },
+  })
+  const sortOrder = (last?.sortOrder ?? -1) + 1
+
   const result = await prisma.markerResult.create({
     data: {
       reportId,
@@ -39,6 +47,7 @@ export async function POST(
       referenceLow,
       referenceHigh,
       status: statusForType(definition.valueType, value, referenceLow, referenceHigh),
+      sortOrder,
       sourceType: 'manual',
       userVerified: true,
       notes: body.notes?.trim() || null,

@@ -80,6 +80,7 @@ model MarkerResult {
   referenceLow  Float?
   referenceHigh Float?
   status        String?
+  sortOrder     Int      @default(0)
   sourceType    String   @default("manual")
   sourceFileId  String?
   userVerified  Boolean  @default(true)
@@ -120,6 +121,7 @@ model ExtractedCandidate {
   suggestedReferenceHigh Float?
   confidence             String
   sourceText             String?
+  orderIndex             Int      @default(0)
   status                 String   @default("pending")
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt

@@ -7,7 +7,7 @@ export async function GET(
   const { eid } = await params
   const candidates = await prisma.extractedCandidate.findMany({
     where: { extractionId: eid },
-    orderBy: [{ confidence: 'desc' }, { markerName: 'asc' }],
+    orderBy: { orderIndex: 'asc' }, // document order
   })
   return Response.json(candidates)
 }

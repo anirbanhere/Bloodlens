@@ -23,7 +23,7 @@ export default async function ExtractionReviewPage({
 
   const candidates = await prisma.extractedCandidate.findMany({
     where: { extractionId: eid },
-    orderBy: [{ confidence: 'desc' }, { markerName: 'asc' }],
+    orderBy: { orderIndex: 'asc' }, // document order
   })
 
   const report = extraction.report

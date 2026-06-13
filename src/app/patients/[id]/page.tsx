@@ -200,7 +200,7 @@ export default async function PatientPage({
               className="flex items-center justify-between px-5 py-4 hover:bg-slate-50"
             >
               <div>
-                <p className="font-medium text-slate-800">{r.reportDate}</p>
+                <p className="font-medium text-slate-800">{r.reportDate || 'Date not set'}</p>
                 <p className="text-sm text-slate-500">
                   {[r.labName, r.reportType].filter(Boolean).join(' · ') || '—'}
                 </p>

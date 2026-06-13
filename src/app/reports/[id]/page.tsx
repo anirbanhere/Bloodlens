@@ -17,7 +17,7 @@ export default async function ReportPage({
     where: { id },
     include: {
       patient: true,
-      markerResults: { orderBy: { markerName: 'asc' } },
+      markerResults: { orderBy: [{ sortOrder: 'asc' }, { markerName: 'asc' }] },
       reportFiles: { orderBy: { createdAt: 'asc' } },
     },
   })
@@ -32,7 +32,7 @@ export default async function ReportPage({
               {report.patient.name}
             </Link>
           </p>
-          <h1 className="text-2xl font-bold text-slate-800">Report — {report.reportDate}</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Report — {report.reportDate || 'date not set'}</h1>
           <p className="text-sm text-slate-500 mt-1">
             {[report.labName, report.reportType, report.notes].filter(Boolean).join(' · ') || ''}
           </p>

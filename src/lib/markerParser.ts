@@ -98,10 +98,12 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
   const candidates: ParsedCandidate[] = []
   const seenKeys = new Set<string>()
 
-  for (const rawLine of lines) {
+  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+    const rawLine = lines[lineIdx]
     const line = stripLeadingSerial(rawLine.trim())
     if (!line) continue
     const normLine = normalise(line)
+    const nextNorm = normalise(lines[lineIdx + 1] ?? '')
 
     // "/hpf" (per high-power field) marks a urine-microscopy count row. Such
     // rows only match microscopy markers; everywhere else, microscopy markers
@@ -163,6 +165,13 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
       } else {
         // Numeric
         value = firstValue(beforeRange)
+        // Wrapped layout: a long test name pushes the value onto the next line
+        // (e.g. "TSH-THYROID STIMULATING HORMONE," then "2.71 uIU/mL"). If this
+        // row had no value but the next line begins with a number, borrow it.
+        if (value === null) {
+          const wrapped = nextNorm.match(/^(-?\d+(?:\.\d+)?)\b/)
+          if (wrapped) value = parseFloat(wrapped[1])
+        }
         if (value !== null && refLow !== null) confidence = 'high'
         else if (value !== null) confidence = 'medium'
       }

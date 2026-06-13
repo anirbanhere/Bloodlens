@@ -3,6 +3,7 @@ import { readUpload } from '@/lib/storage'
 import { extractPdfText } from '@/lib/pdfExtract'
 import { extractImageText } from '@/lib/imageOcr'
 import { parseMarkers } from '@/lib/markerParser'
+import { extractReportDate } from '@/lib/reportMeta'
 
 export async function POST(
   _request: Request,
@@ -63,6 +64,15 @@ export async function POST(
     )
   }
 
+  // Auto-fill the report date from the document if it wasn't set manually.
+  const report = await prisma.report.findUnique({ where: { id: file.reportId } })
+  if (report && !report.reportDate) {
+    const parsedDate = extractReportDate(rawText)
+    if (parsedDate) {
+      await prisma.report.update({ where: { id: file.reportId }, data: { reportDate: parsedDate } })
+    }
+  }
+
   // Save extraction record
   const extraction = await prisma.reportExtraction.create({
     data: {
@@ -88,9 +98,9 @@ export async function POST(
     }))
   )
 
-  // Persist candidates
+  // Persist candidates, preserving document order via orderIndex.
   await prisma.extractedCandidate.createMany({
-    data: candidates.map((c) => ({
+    data: candidates.map((c, i) => ({
       extractionId: extraction.id,
       reportId: file.reportId,
       fileId: fid,
@@ -103,6 +113,7 @@ export async function POST(
       suggestedReferenceHigh: c.suggestedReferenceHigh,
       confidence: c.confidence,
       sourceText: c.sourceText,
+      orderIndex: i,
       status: 'pending',
     })),
   })

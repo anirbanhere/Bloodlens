@@ -32,14 +32,15 @@ export default function ReportForm({ patientId }: { patientId: string }) {
   return (
     <form onSubmit={onSubmit} className="bg-white rounded-xl border border-slate-200 p-6 max-w-lg space-y-4">
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Report date *</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Report date</label>
         <input
           name="reportDate"
           type="date"
-          required
-          defaultValue={new Date().toISOString().slice(0, 10)}
           className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+        <p className="text-xs text-slate-400 mt-1">
+          Optional — leave blank to auto-fill from the report when you upload and extract a PDF.
+        </p>
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Lab name</label>

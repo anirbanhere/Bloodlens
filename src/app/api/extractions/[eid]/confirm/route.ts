@@ -52,6 +52,7 @@ export async function POST(
         referenceLow: c.suggestedReferenceLow,
         referenceHigh: c.suggestedReferenceHigh,
         status,
+        sortOrder: c.orderIndex,
         sourceType: 'extracted',
         sourceFileId: c.fileId,
         userVerified: true,

@@ -13,13 +13,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json()
-  if (!body.patientId || !body.reportDate) {
-    return Response.json({ error: 'patientId and reportDate are required' }, { status: 400 })
+  if (!body.patientId) {
+    return Response.json({ error: 'patientId is required' }, { status: 400 })
   }
   const report = await prisma.report.create({
     data: {
       patientId: body.patientId,
-      reportDate: body.reportDate,
+      reportDate: body.reportDate?.trim() || '', // optional — auto-filled from PDF on extraction
       labName: body.labName?.trim() || null,
       reportType: body.reportType || null,
       notes: body.notes?.trim() || null,

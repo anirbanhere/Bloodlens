@@ -31,7 +31,7 @@ const markers = [
   { markerKey: 'ferritin', canonicalName: 'Ferritin', category: 'Anemia / Blood', aliases: ['ferritin', 'serum ferritin'], defaultUnit: 'ng/mL', description: 'Iron storage protein' },
   { markerKey: 'serum_iron', canonicalName: 'Serum Iron', category: 'Anemia / Blood', aliases: ['iron', 'serum iron', 'fe'], defaultUnit: 'µg/dL', description: 'Serum iron' },
   { markerKey: 'tibc', canonicalName: 'TIBC', category: 'Anemia / Blood', aliases: ['tibc', 'total iron binding capacity', 'total iron-binding capacity'], defaultUnit: 'µg/dL', description: 'Total iron-binding capacity' },
-  { markerKey: 'tsat', canonicalName: 'TSAT', category: 'Anemia / Blood', aliases: ['tsat', 'transferrin saturation', 'transferrin sat', '%tsat'], defaultUnit: '%', description: 'Transferrin saturation' },
+  { markerKey: 'tsat', canonicalName: 'TSAT', category: 'Anemia / Blood', aliases: ['tsat', 'transferrin saturation', 'transferrin sat', '%tsat', 'transferrin satuaration', 'transferrin saturation serum', 'transferrin satuaration serum'], defaultUnit: '%', description: 'Transferrin saturation' },
 
   // CKD Mineral Balance
   { markerKey: 'pth', canonicalName: 'PTH', category: 'CKD Mineral Balance', aliases: ['pth', 'parathyroid hormone', 'ipth', 'intact pth', 'parathormone'], defaultUnit: 'pg/mL', description: 'Parathyroid hormone' },
@@ -40,9 +40,10 @@ const markers = [
 
   // Diabetes / Metabolic
   { markerKey: 'hba1c', canonicalName: 'HbA1c', category: 'Diabetes', aliases: ['hba1c', 'glycated hemoglobin', 'glycosylated hemoglobin', 'a1c', 'haemoglobin a1c'], defaultUnit: '%', description: 'Glycated hemoglobin' },
-  { markerKey: 'fasting_glucose', canonicalName: 'Fasting Glucose', category: 'Diabetes', aliases: ['fasting glucose', 'fbs', 'fasting blood sugar', 'fasting sugar', 'fasting blood glucose', 'glucose fasting'], defaultUnit: 'mg/dL', description: 'Fasting blood sugar' },
+  { markerKey: 'fasting_glucose', canonicalName: 'Fasting Glucose', category: 'Diabetes', aliases: ['fasting glucose', 'fbs', 'fasting blood sugar', 'fasting sugar', 'fasting blood glucose', 'glucose fasting', 'glucose fasting fluoride plasma'], defaultUnit: 'mg/dL', description: 'Fasting blood sugar' },
   { markerKey: 'pp_glucose', canonicalName: 'Post-Prandial Glucose', category: 'Diabetes', aliases: ['ppbs', 'post prandial', 'post-prandial glucose', 'pp blood sugar', 'post meal glucose', 'post meal sugar', '2hr ppbs'], defaultUnit: 'mg/dL', description: 'Post-meal blood sugar' },
-  { markerKey: 'random_glucose', canonicalName: 'Random Glucose', category: 'Diabetes', aliases: ['rbs', 'random blood sugar', 'random glucose', 'random blood glucose'], defaultUnit: 'mg/dL', description: 'Random blood sugar' },
+  { markerKey: 'random_glucose', canonicalName: 'Random Glucose', category: 'Diabetes', aliases: ['rbs', 'random blood sugar', 'random glucose', 'random blood glucose', 'glucose random fluoride plasma', 'glucose random', 'random plasma glucose'], defaultUnit: 'mg/dL', description: 'Random blood sugar' },
+  { markerKey: 'tsh', canonicalName: 'TSH', category: 'Thyroid', aliases: ['tsh-thyroid stimulating hormone', 'tsh thyroid stimulating hormone', 'thyroid stimulating hormone', 'tsh'], defaultUnit: 'uIU/mL', description: 'Thyroid stimulating hormone', valueType: 'numeric' },
 
   // Urine Protein
   { markerKey: 'urine_protein', canonicalName: 'Urine Protein', category: 'Urine Protein', aliases: ['urine protein', 'protein urine', 'urinary protein', 'spot urine protein'], defaultUnit: 'mg/dL', description: 'Urine protein' },
@@ -82,7 +83,8 @@ const markers = [
   // Urine Microscopy (per high-power field counts)
   { markerKey: 'urine_rbc_micro', canonicalName: 'Urine RBCs (microscopy)', category: 'Urine Microscopy', aliases: ['rbcs', 'rbc', 'red blood cells', 'red blood cell'], defaultUnit: '/HPF', description: 'Urine red cells per high-power field', valueType: 'numeric' },
   { markerKey: 'urine_wbc_micro', canonicalName: 'Urine WBC (microscopy)', category: 'Urine Microscopy', aliases: ['wbc', 'wbcs', 'pus cells', 'white blood cells'], defaultUnit: '/HPF', description: 'Urine white cells per high-power field', valueType: 'numeric' },
-  { markerKey: 'urine_epithelial_cells', canonicalName: 'Epithelial Cells', category: 'Urine Microscopy', aliases: ['epithelial cells', 'epithelial cell', 'non squamous epithelial cells'], defaultUnit: '/HPF', description: 'Urine epithelial cells per high-power field', valueType: 'numeric' },
+  { markerKey: 'urine_epithelial_cells', canonicalName: 'Epithelial Cells', category: 'Urine Microscopy', aliases: ['epithelial cells', 'epithelial cell'], defaultUnit: '/HPF', description: 'Urine epithelial cells per high-power field', valueType: 'numeric' },
+  { markerKey: 'urine_non_squamous_epithelial', canonicalName: 'Non Squamous Epithelial Cells', category: 'Urine Microscopy', aliases: ['non squamous epithelial cells', 'non-squamous epithelial cells'], defaultUnit: '/HPF', description: 'Urine non-squamous epithelial cells per high-power field', valueType: 'numeric' },
   { markerKey: 'urine_hyaline_casts', canonicalName: 'Hyaline Casts', category: 'Urine Microscopy', aliases: ['hyaline casts', 'hyaline cast'], defaultUnit: '/HPF', description: 'Urine hyaline casts per high-power field', valueType: 'numeric' },
   { markerKey: 'urine_pathological_casts', canonicalName: 'Pathological Casts', category: 'Urine Microscopy', aliases: ['pathological casts', 'pathological cast', 'granular casts'], defaultUnit: '/HPF', description: 'Urine pathological casts per high-power field', valueType: 'numeric' },
   { markerKey: 'urine_crystals', canonicalName: 'Crystals', category: 'Urine Microscopy', aliases: ['crystals', 'crystal'], defaultUnit: '/HPF', description: 'Urine crystals per high-power field', valueType: 'numeric' },

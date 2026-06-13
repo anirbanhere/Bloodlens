@@ -3,6 +3,8 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+const EXTRACTABLE = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp'])
+
 type ReportFileRow = {
   id: string
   fileType: string
@@ -23,6 +25,7 @@ export default function FileSection({
   const [error, setError] = useState('')
   const [previewId, setPreviewId] = useState<string | null>(files[0]?.id ?? null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [extracting, setExtracting] = useState<string | null>(null)
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -49,6 +52,20 @@ export default function FileSection({
     await fetch(`/api/files/${id}`, { method: 'DELETE' })
     if (previewId === id) setPreviewId(null)
     router.refresh()
+  }
+
+  async function onExtract(id: string) {
+    setExtracting(id)
+    setError('')
+    const res = await fetch(`/api/files/${id}/extract`, { method: 'POST' })
+    setExtracting(null)
+    if (res.ok) {
+      const data = await res.json()
+      router.push(`/extractions/${data.extractionId}/review`)
+    } else {
+      const body = await res.json().catch(() => ({}))
+      setError(body.error ?? 'Extraction failed')
+    }
   }
 
   async function onRename(e: React.FormEvent<HTMLFormElement>, id: string) {
@@ -116,6 +133,15 @@ export default function FileSection({
                       <a href={`/api/files/${f.id}/view`} target="_blank" className="text-blue-600 hover:underline">
                         Open
                       </a>
+                      {EXTRACTABLE.has(f.fileType) && (
+                        <button
+                          onClick={() => onExtract(f.id)}
+                          disabled={extracting === f.id}
+                          className="text-purple-600 hover:underline disabled:text-slate-400"
+                        >
+                          {extracting === f.id ? 'Extracting…' : 'Extract markers'}
+                        </button>
+                      )}
                       <button onClick={() => setRenamingId(f.id)} className="text-slate-400 hover:text-slate-600">
                         Rename
                       </button>

@@ -127,6 +127,12 @@ export default async function PatientPage({
             Export CSV
           </a>
           <Link
+            href={`/patients/${patient.id}/summary`}
+            className="text-sm text-slate-700 border border-slate-300 px-3 py-2 rounded-lg hover:bg-slate-100"
+          >
+            Summary
+          </Link>
+          <Link
             href={`/reports/new?patientId=${patient.id}`}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
           >

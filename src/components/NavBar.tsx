@@ -10,6 +10,7 @@ export default function NavBar() {
         </Link>
         <nav className="flex items-center gap-4 text-sm text-slate-600">
           <Link href="/patients" className="hover:text-slate-900">Patients</Link>
+          <Link href="/admin" className="hover:text-slate-900">Admin</Link>
         </nav>
       </div>
     </header>

@@ -2,6 +2,8 @@
  * Server-side PDF text extraction using pdfjs-dist legacy build (Node.js compatible).
  * Must run in Node.js only — never import this in a client component.
  */
+import path from 'path'
+import { pathToFileURL } from 'url'
 
 let pdfjsLib: typeof import('pdfjs-dist/legacy/build/pdf.mjs') | null = null
 
@@ -16,8 +18,12 @@ async function getPdfjs() {
       }
     }
     pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    // Disable worker — required for server-side use
-    pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+    // pdfjs-dist v6 requires workerSrc to be a file:// URL pointing to the worker
+    const workerPath = path.resolve(
+      process.cwd(),
+      'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'
+    )
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
   }
   return pdfjsLib
 }

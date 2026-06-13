@@ -1,15 +1,17 @@
 import { prisma } from '@/lib/db'
 import { readUpload } from '@/lib/storage'
-import { extractPdfText } from '@/lib/pdfExtract'
+import { extractPdfText, PdfPasswordError } from '@/lib/pdfExtract'
 import { extractImageText } from '@/lib/imageOcr'
 import { parseMarkers } from '@/lib/markerParser'
 import { extractReportDate } from '@/lib/reportMeta'
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ fid: string }> }
 ) {
   const { fid } = await params
+  const body = await request.json().catch(() => ({}))
+  const password: string | undefined = typeof body.password === 'string' && body.password ? body.password : undefined
   const file = await prisma.reportFile.findUnique({ where: { id: fid } })
   if (!file) return Response.json({ error: 'File not found' }, { status: 404 })
 
@@ -41,7 +43,7 @@ export async function POST(
 
   try {
     if (isPdf) {
-      const result = await extractPdfText(buffer)
+      const result = await extractPdfText(buffer, password)
       rawText = result.text
       confidence = result.confidence
       extractionMethod = 'pdf_text'
@@ -52,6 +54,12 @@ export async function POST(
       extractionMethod = 'image_ocr'
     }
   } catch (err: unknown) {
+    if (err instanceof PdfPasswordError) {
+      return Response.json(
+        { error: err.message, passwordRequired: true, wrongPassword: err.wrongPassword },
+        { status: 422 }
+      )
+    }
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[extract] extraction error:', msg)
     return Response.json({ error: `Extraction error: ${msg}` }, { status: 500 })

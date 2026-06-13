@@ -34,6 +34,14 @@ export interface PdfExtractionResult {
   confidence: number // 1.0 for digital PDFs (text layer present), 0 for image-only
 }
 
+// Thrown when the PDF requires a password (or the supplied password is wrong).
+export class PdfPasswordError extends Error {
+  constructor(public readonly wrongPassword: boolean) {
+    super(wrongPassword ? 'Incorrect PDF password' : 'PDF is password-protected')
+    this.name = 'PdfPasswordError'
+  }
+}
+
 /**
  * pdfjs returns text as positioned fragments with no line structure.
  * Group fragments by their Y coordinate into visual rows, sort each row
@@ -78,11 +86,25 @@ function reconstructLines(items: ReadonlyArray<unknown>): string {
     .join('\n')
 }
 
-export async function extractPdfText(buffer: Buffer): Promise<PdfExtractionResult> {
+export async function extractPdfText(buffer: Buffer, password?: string): Promise<PdfExtractionResult> {
   const pdfjs = await getPdfjs()
 
-  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buffer) })
-  const pdf = await loadingTask.promise
+  const loadingTask = pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    ...(password != null ? { password } : {}),
+  })
+
+  let pdf: Awaited<typeof loadingTask.promise>
+  try {
+    pdf = await loadingTask.promise
+  } catch (err: unknown) {
+    const e = err as { name?: string; code?: number }
+    if (e?.name === 'PasswordException') {
+      // code 1 = NEED_PASSWORD, code 2 = INCORRECT_PASSWORD
+      throw new PdfPasswordError(e.code === 2)
+    }
+    throw err
+  }
 
   const pageTexts: string[] = []
   let totalChars = 0

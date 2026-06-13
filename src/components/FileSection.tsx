@@ -26,6 +26,9 @@ export default function FileSection({
   const [previewId, setPreviewId] = useState<string | null>(files[0]?.id ?? null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [extracting, setExtracting] = useState<string | null>(null)
+  const [passwordFileId, setPasswordFileId] = useState<string | null>(null)
+  const [passwordInput, setPasswordInput] = useState('')
+  const [passwordError, setPasswordError] = useState('')
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -54,18 +57,35 @@ export default function FileSection({
     router.refresh()
   }
 
-  async function onExtract(id: string) {
+  async function onExtract(id: string, password?: string) {
     setExtracting(id)
     setError('')
-    const res = await fetch(`/api/files/${id}/extract`, { method: 'POST' })
+    setPasswordError('')
+    const res = await fetch(`/api/files/${id}/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    })
     setExtracting(null)
     if (res.ok) {
       const data = await res.json()
+      setPasswordFileId(null)
+      setPasswordInput('')
       router.push(`/extractions/${data.extractionId}/review`)
     } else {
       const body = await res.json().catch(() => ({}))
-      setError(body.error ?? 'Extraction failed')
+      if (body.passwordRequired) {
+        setPasswordFileId(id)
+        if (body.wrongPassword) setPasswordError('Incorrect password — try again.')
+      } else {
+        setError(body.error ?? 'Extraction failed')
+      }
     }
+  }
+
+  async function onExtractWithPassword(e: React.FormEvent, id: string) {
+    e.preventDefault()
+    await onExtract(id, passwordInput)
   }
 
   async function onRename(e: React.FormEvent<HTMLFormElement>, id: string) {
@@ -129,18 +149,46 @@ export default function FileSection({
                       <span className="uppercase text-xs bg-slate-100 text-slate-500 rounded px-1.5 py-0.5 mr-2">{f.fileType}</span>
                       {f.displayName ?? f.originalFilename}
                     </button>
-                    <span className="flex gap-3 text-xs whitespace-nowrap">
+                    <span className="flex gap-3 text-xs whitespace-nowrap items-center">
                       <a href={`/api/files/${f.id}/view`} target="_blank" className="text-blue-600 hover:underline">
                         Open
                       </a>
                       {EXTRACTABLE.has(f.fileType) && (
-                        <button
-                          onClick={() => onExtract(f.id)}
-                          disabled={extracting === f.id}
-                          className="text-purple-600 hover:underline disabled:text-slate-400"
-                        >
-                          {extracting === f.id ? 'Extracting…' : 'Extract markers'}
-                        </button>
+                        passwordFileId === f.id ? (
+                          <form onSubmit={(e) => onExtractWithPassword(e, f.id)} className="flex items-center gap-1.5">
+                            <input
+                              type="password"
+                              value={passwordInput}
+                              onChange={(e) => setPasswordInput(e.target.value)}
+                              placeholder="PDF password"
+                              autoFocus
+                              className="border border-slate-300 rounded px-2 py-0.5 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            />
+                            <button
+                              type="submit"
+                              disabled={extracting === f.id || !passwordInput}
+                              className="text-purple-600 hover:underline disabled:text-slate-400"
+                            >
+                              {extracting === f.id ? 'Extracting…' : 'Unlock & extract'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setPasswordFileId(null); setPasswordInput(''); setPasswordError('') }}
+                              className="text-slate-400 hover:text-slate-600"
+                            >
+                              Cancel
+                            </button>
+                            {passwordError && <span className="text-red-500">{passwordError}</span>}
+                          </form>
+                        ) : (
+                          <button
+                            onClick={() => onExtract(f.id)}
+                            disabled={extracting === f.id}
+                            className="text-purple-600 hover:underline disabled:text-slate-400"
+                          >
+                            {extracting === f.id ? 'Extracting…' : 'Extract markers'}
+                          </button>
+                        )
                       )}
                       <button onClick={() => setRenamingId(f.id)} className="text-slate-400 hover:text-slate-600">
                         Rename

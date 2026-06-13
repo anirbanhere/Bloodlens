@@ -38,21 +38,27 @@ export async function POST(
   let confidence = 0
   let extractionMethod = ''
 
-  if (isPdf) {
-    const result = await extractPdfText(buffer)
-    rawText = result.text
-    confidence = result.confidence
-    extractionMethod = 'pdf_text'
-  } else {
-    const result = await extractImageText(buffer)
-    rawText = result.text
-    confidence = result.confidence
-    extractionMethod = 'image_ocr'
+  try {
+    if (isPdf) {
+      const result = await extractPdfText(buffer)
+      rawText = result.text
+      confidence = result.confidence
+      extractionMethod = 'pdf_text'
+    } else {
+      const result = await extractImageText(buffer)
+      rawText = result.text
+      confidence = result.confidence
+      extractionMethod = 'image_ocr'
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[extract] extraction error:', msg)
+    return Response.json({ error: `Extraction error: ${msg}` }, { status: 500 })
   }
 
   if (!rawText.trim()) {
     return Response.json(
-      { error: 'No text could be extracted from this file. Try a clearer scan.' },
+      { error: 'No text could be extracted. This may be a scanned/image-only PDF — try the OCR path by uploading the file as an image.' },
       { status: 422 }
     )
   }

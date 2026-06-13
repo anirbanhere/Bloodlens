@@ -7,6 +7,14 @@ let pdfjsLib: typeof import('pdfjs-dist/legacy/build/pdf.mjs') | null = null
 
 async function getPdfjs() {
   if (!pdfjsLib) {
+    // pdfjs requires DOMMatrix even for text extraction — stub it if missing
+    if (typeof globalThis.DOMMatrix === 'undefined') {
+      // @ts-expect-error — minimal stub for Node.js environment
+      globalThis.DOMMatrix = class DOMMatrix {
+        constructor() { return this }
+        static fromMatrix() { return new (globalThis.DOMMatrix as any)() }
+      }
+    }
     pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
     // Disable worker — required for server-side use
     pdfjsLib.GlobalWorkerOptions.workerSrc = ''

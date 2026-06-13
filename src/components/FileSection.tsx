@@ -103,10 +103,10 @@ export default function FileSection({
   const preview = files.find((f) => f.id === previewId)
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5">
+    <div className="bg-surface rounded-card border border-slate-200/80 shadow-card p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-medium text-slate-700">Original report files</h3>
-        <label className={`text-sm px-3 py-1.5 rounded-lg cursor-pointer font-medium ${uploading ? 'bg-slate-100 text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+        <label className={`text-sm px-3 py-1.5 rounded-lg cursor-pointer font-medium transition ${uploading ? 'bg-slate-100 text-slate-400' : 'bg-brand-500 text-white hover:bg-brand-600'}`}>
           {uploading ? 'Uploading…' : '+ Upload file'}
           <input
             ref={inputRef}
@@ -118,7 +118,7 @@ export default function FileSection({
           />
         </label>
       </div>
-      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+      {error && <p className="text-sm text-alert-600 mb-3">{error}</p>}
 
       {files.length === 0 ? (
         <p className="text-sm text-slate-400">
@@ -135,22 +135,22 @@ export default function FileSection({
                       name="displayName"
                       defaultValue={f.displayName ?? f.originalFilename}
                       autoFocus
-                      className="border border-slate-300 rounded-lg px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="border border-slate-300 rounded-lg px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-brand-400"
                     />
-                    <button type="submit" className="text-xs text-blue-600 hover:underline">Save</button>
+                    <button type="submit" className="text-xs text-brand-600 hover:underline">Save</button>
                     <button type="button" onClick={() => setRenamingId(null)} className="text-xs text-slate-400">Cancel</button>
                   </form>
                 ) : (
                   <>
                     <button
                       onClick={() => setPreviewId(f.id)}
-                      className={`text-sm text-left flex-1 truncate hover:text-blue-600 ${previewId === f.id ? 'text-blue-600 font-medium' : 'text-slate-600'}`}
+                      className={`text-sm text-left flex-1 truncate hover:text-brand-600 ${previewId === f.id ? 'text-brand-600 font-medium' : 'text-slate-600'}`}
                     >
                       <span className="uppercase text-xs bg-slate-100 text-slate-500 rounded px-1.5 py-0.5 mr-2">{f.fileType}</span>
                       {f.displayName ?? f.originalFilename}
                     </button>
                     <span className="flex gap-3 text-xs whitespace-nowrap items-center">
-                      <a href={`/api/files/${f.id}/view`} target="_blank" className="text-blue-600 hover:underline">
+                      <a href={`/api/files/${f.id}/view`} target="_blank" className="text-brand-600 hover:underline">
                         Open
                       </a>
                       {EXTRACTABLE.has(f.fileType) && (
@@ -162,12 +162,12 @@ export default function FileSection({
                               onChange={(e) => setPasswordInput(e.target.value)}
                               placeholder="PDF password"
                               autoFocus
-                              className="border border-slate-300 rounded px-2 py-0.5 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                              className="border border-slate-300 rounded px-2 py-0.5 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-brand-400"
                             />
                             <button
                               type="submit"
                               disabled={extracting === f.id || !passwordInput}
-                              className="text-purple-600 hover:underline disabled:text-slate-400"
+                              className="text-brand-600 hover:underline disabled:text-slate-400"
                             >
                               {extracting === f.id ? 'Extracting…' : 'Unlock & extract'}
                             </button>
@@ -178,13 +178,13 @@ export default function FileSection({
                             >
                               Cancel
                             </button>
-                            {passwordError && <span className="text-red-500">{passwordError}</span>}
+                            {passwordError && <span className="text-alert-600">{passwordError}</span>}
                           </form>
                         ) : (
                           <button
                             onClick={() => onExtract(f.id)}
                             disabled={extracting === f.id}
-                            className="text-purple-600 hover:underline disabled:text-slate-400"
+                            className="text-brand-600 hover:underline disabled:text-slate-400"
                           >
                             {extracting === f.id ? 'Extracting…' : 'Extract markers'}
                           </button>
@@ -193,7 +193,7 @@ export default function FileSection({
                       <button onClick={() => setRenamingId(f.id)} className="text-slate-400 hover:text-slate-600">
                         Rename
                       </button>
-                      <button onClick={() => onDelete(f.id)} className="text-slate-400 hover:text-red-600">
+                      <button onClick={() => onDelete(f.id)} className="text-slate-400 hover:text-alert-600">
                         Delete
                       </button>
                     </span>

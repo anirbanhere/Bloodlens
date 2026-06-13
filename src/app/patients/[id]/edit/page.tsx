@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import PatientForm from '@/components/PatientForm'
+import PageHeader from '@/components/ui/PageHeader'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ export default async function EditPatientPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Edit {patient.name}</h1>
+      <PageHeader title={`Edit ${patient.name}`} />
       <PatientForm patient={patient} />
     </div>
   )

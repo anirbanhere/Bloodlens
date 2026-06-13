@@ -49,15 +49,15 @@ export default function MarkerTable({
   }
 
   function cellColor(status: string | null | undefined): string {
-    if (status === 'high') return 'bg-red-50 text-red-700'
-    if (status === 'low') return 'bg-amber-50 text-amber-700'
+    if (status === 'high') return 'bg-alert-50 text-alert-700'
+    if (status === 'low') return 'bg-warn-50 text-warn-700'
     if (status === 'normal') return 'text-slate-700'
     return 'text-slate-500'
   }
 
   if (rows.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500">
+      <div className="bg-surface rounded-card border border-slate-200/80 shadow-card p-8 text-center text-slate-500">
         No marker values yet. Add a report with marker values first.
       </div>
     )
@@ -70,7 +70,7 @@ export default function MarkerTable({
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-400"
         >
           <option value="">All</option>
           {categories.map((c) => (
@@ -79,16 +79,16 @@ export default function MarkerTable({
         </select>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+      <div className="bg-surface rounded-card border border-slate-200/80 shadow-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
-              <th className="px-4 py-2.5 font-medium sticky left-0 bg-white">Date</th>
+            <tr className="text-left text-xs text-slate-500 border-b border-slate-200 bg-slate-50/80">
+              <th className="px-4 py-2.5 font-medium sticky left-0 bg-slate-50 z-10">Date</th>
               {visible.map((c) => (
                 <th key={c.markerKey} className="px-4 py-2.5 font-medium whitespace-nowrap">
                   <Link
                     href={`/patients/${patientId}/markers/${c.markerKey}`}
-                    className="hover:text-blue-600 hover:underline"
+                    className="hover:text-brand-600 hover:underline"
                   >
                     {c.name}
                   </Link>
@@ -99,9 +99,9 @@ export default function MarkerTable({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map((row, i) => (
-              <tr key={row.reportId}>
-                <td className="px-4 py-2.5 sticky left-0 bg-white whitespace-nowrap">
-                  <Link href={`/reports/${row.reportId}`} className="font-medium text-slate-700 hover:text-blue-600">
+              <tr key={row.reportId} className="bg-surface even:bg-slate-50 hover:bg-brand-50 transition">
+                <td className="px-4 py-2.5 sticky left-0 bg-inherit whitespace-nowrap">
+                  <Link href={`/reports/${row.reportId}`} className="font-medium text-slate-700 hover:text-brand-600">
                     {row.reportDate}
                   </Link>
                   {row.labName && <span className="block text-xs text-slate-400">{row.labName}</span>}
@@ -128,7 +128,7 @@ export default function MarkerTable({
         </table>
       </div>
       <p className="mt-3 text-xs text-slate-400">
-        Red = above range · Amber = below range · Click a marker name for its trend graph.
+        Rose = above range · Gold = below range · Click a marker name for its trend graph.
       </p>
     </div>
   )

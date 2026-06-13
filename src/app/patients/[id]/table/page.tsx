@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import MarkerTable, { type TableColumn, type TableRow } from '@/components/MarkerTable'
+import PageHeader from '@/components/ui/PageHeader'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,16 +60,14 @@ export default async function MarkerTablePage({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-sm text-slate-500">
-            <Link href={`/patients/${id}`} className="text-blue-600 hover:underline">
-              {patient.name}
-            </Link>
-          </p>
-          <h1 className="text-2xl font-bold text-slate-800">Marker table</h1>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow={
+          <Link href={`/patients/${id}`} className="text-brand-600 hover:underline">
+            ← {patient.name}
+          </Link>
+        }
+        title="Marker table"
+      />
       <MarkerTable patientId={id} columns={columns} rows={rows} />
     </div>
   )

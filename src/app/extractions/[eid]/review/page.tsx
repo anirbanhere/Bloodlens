@@ -34,11 +34,11 @@ export default async function ExtractionReviewPage({
     <div>
       <div className="mb-6">
         <p className="text-sm text-slate-500">
-          <Link href={`/patients/${patient.id}`} className="text-blue-600 hover:underline">{patient.name}</Link>
+          <Link href={`/patients/${patient.id}`} className="text-brand-600 hover:underline">{patient.name}</Link>
           {' · '}
-          <Link href={`/reports/${report.id}`} className="text-blue-600 hover:underline">Report {report.reportDate}</Link>
+          <Link href={`/reports/${report.id}`} className="text-brand-600 hover:underline">Report {report.reportDate}</Link>
         </p>
-        <h1 className="text-2xl font-bold text-slate-800 mt-1">Review extracted markers</h1>
+        <h1 className="text-2xl font-bold text-slate-800 mt-1 tracking-tight">Review extracted markers</h1>
         <p className="text-sm text-slate-500 mt-1">
           Extracted via <span className="font-medium">{method}</span> from{' '}
           <span className="font-medium">{extraction.file.displayName ?? extraction.file.originalFilename}</span>
@@ -46,12 +46,12 @@ export default async function ExtractionReviewPage({
         </p>
       </div>
 
-      <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-5 text-sm text-amber-800">
+      <div className="bg-warn-50 border border-warn-100 rounded-lg px-4 py-3 mb-5 text-sm text-warn-700">
         Check each value carefully before saving. Extracted values may contain errors — verify against the original report.
         Only checked rows will be saved.
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <div className="bg-surface rounded-card border border-slate-200/80 shadow-card p-5">
         <ExtractionReviewTable
           extractionId={eid}
           reportId={report.id}

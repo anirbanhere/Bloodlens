@@ -2,13 +2,14 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { generatePatientSummary } from '@/lib/summaryGenerator'
 import PrintButton from '@/components/PrintButton'
+import Button from '@/components/ui/Button'
 
 export const dynamic = 'force-dynamic'
 
 const STATUS_DOT: Record<string, string> = {
-  high: 'bg-red-500',
-  low: 'bg-amber-500',
-  normal: 'bg-green-500',
+  high: 'bg-alert-500',
+  low: 'bg-warn-500',
+  normal: 'bg-ok-500',
   unknown: 'bg-slate-300',
 }
 
@@ -24,7 +25,7 @@ function ChangeArrow({ change }: { change: number | null }) {
   if (Math.abs(change) < 0.001) return <span className="text-slate-400 text-xs">no change</span>
   const up = change > 0
   return (
-    <span className={`text-xs font-medium ${up ? 'text-red-600' : 'text-green-600'}`}>
+    <span className={`text-xs font-medium ${up ? 'text-alert-600' : 'text-ok-600'}`}>
       {up ? '↑' : '↓'} {Math.abs(change)}
     </span>
   )
@@ -55,10 +56,10 @@ export default async function SummaryPage({
 
   return (
     <div>
-      {/* Print styles — hide nav, show all content */}
+      {/* Print styles — hide chrome, show all content */}
       <style>{`
         @media print {
-          nav, .no-print { display: none !important; }
+          aside, header, footer, .no-print { display: none !important; }
           body { font-size: 12px; }
           .print-page-break { page-break-before: always; }
         }
@@ -68,19 +69,16 @@ export default async function SummaryPage({
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6 no-print">
         <div>
           <p className="text-sm text-slate-500">
-            <Link href={`/patients/${patient.id}`} className="text-blue-600 hover:underline">{patient.name}</Link>
+            <Link href={`/patients/${patient.id}`} className="text-brand-600 hover:underline">{patient.name}</Link>
           </p>
-          <h1 className="text-2xl font-bold text-slate-800">Pre-appointment summary</h1>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Pre-appointment summary</h1>
           <p className="text-sm text-slate-500 mt-1">Generated {new Date().toLocaleDateString()}</p>
         </div>
         <div className="flex gap-2 no-print">
           <PrintButton />
-          <Link
-            href={`/patients/${patient.id}`}
-            className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
-          >
+          <Button href={`/patients/${patient.id}`} variant="secondary" size="sm">
             Back to patient
-          </Link>
+          </Button>
         </div>
       </div>
 
@@ -91,7 +89,7 @@ export default async function SummaryPage({
       </div>
 
       {/* Patient overview */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 mb-5">
+      <div className="bg-surface rounded-card border border-slate-200/80 shadow-card p-5 mb-5">
         <h2 className="font-medium text-slate-700 mb-3">Patient overview</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
           {patient.age && <div><span className="text-slate-500">Age</span><p className="font-medium">{patient.age}</p></div>}
@@ -115,7 +113,7 @@ export default async function SummaryPage({
 
       {/* At-a-glance banner */}
       {outsideRangeCount > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-5 text-sm text-amber-800">
+        <div className="bg-alert-50 border border-alert-100 rounded-lg px-4 py-3 mb-5 text-sm text-alert-700">
           {outsideRangeCount} marker{outsideRangeCount !== 1 ? 's' : ''} outside reference range
           {previousReportDate && ` — compared with ${previousReportDate}`}
         </div>
@@ -123,7 +121,7 @@ export default async function SummaryPage({
 
       {/* Marker table by category */}
       {[...byCategory.entries()].map(([category, rows]) => (
-        <div key={category} className="bg-white rounded-xl border border-slate-200 mb-4 overflow-hidden">
+        <div key={category} className="bg-surface rounded-card border border-slate-200/80 shadow-card mb-4 overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
             <h2 className="font-medium text-slate-700">{category}</h2>
             <span className="text-xs text-slate-400">{rows.length} marker{rows.length !== 1 ? 's' : ''}</span>
@@ -143,9 +141,9 @@ export default async function SummaryPage({
               {rows.map((m) => {
                 const st = m.latest?.status ?? 'unknown'
                 return (
-                  <tr key={m.markerKey} className={st === 'high' || st === 'low' ? 'bg-red-50/40' : ''}>
+                  <tr key={m.markerKey} className={st === 'high' || st === 'low' ? 'bg-alert-50/40' : ''}>
                     <td className="px-5 py-2.5 font-medium text-slate-700">
-                      <Link href={`/patients/${patient.id}/markers/${m.markerKey}`} className="hover:text-blue-600 no-print">
+                      <Link href={`/patients/${patient.id}/markers/${m.markerKey}`} className="hover:text-brand-600 no-print">
                         {m.markerName}
                       </Link>
                       <span className="hidden print:inline">{m.markerName}</span>

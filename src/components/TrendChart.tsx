@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation'
 import {
   ResponsiveContainer,
-  LineChart,
+  ComposedChart,
+  Area,
   Line,
   XAxis,
   YAxis,
@@ -41,7 +42,7 @@ export default function TrendChart({
   const values = numericPoints.map((p) => p.value as number)
   if (numericPoints.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500">
+      <div className="bg-surface rounded-card border border-slate-200/80 shadow-card p-8 text-center text-slate-500">
         No numeric values to plot. See the history table below for recorded results.
       </div>
     )
@@ -55,9 +56,9 @@ export default function TrendChart({
   const domain: [number, number] = [Math.max(0, min - pad), max + pad]
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
+    <div className="bg-surface rounded-card border border-slate-200/80 shadow-card p-4">
       <ResponsiveContainer width="100%" height={320}>
-        <LineChart
+        <ComposedChart
           data={numericPoints}
           margin={{ top: 10, right: 20, bottom: 5, left: 0 }}
           onClick={(state) => {
@@ -66,7 +67,13 @@ export default function TrendChart({
             if (p?.reportId) router.push(`/reports/${p.reportId}`)
           }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <defs>
+            <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#7982c9" stopOpacity={0.22} />
+              <stop offset="100%" stopColor="#7982c9" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#eef0f6" />
           <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} />
           <YAxis
             domain={domain}
@@ -78,10 +85,10 @@ export default function TrendChart({
             <ReferenceArea
               y1={referenceLow}
               y2={referenceHigh}
-              fill="#22c55e"
-              fillOpacity={0.08}
-              stroke="#22c55e"
-              strokeOpacity={0.25}
+              fill="#83c979"
+              fillOpacity={0.1}
+              stroke="#83c979"
+              strokeOpacity={0.3}
               strokeDasharray="4 4"
             />
           )}
@@ -95,17 +102,24 @@ export default function TrendChart({
               const lab = payload?.[0]?.payload?.lab
               return lab ? `${label} · ${lab}` : String(label)
             }}
-            contentStyle={{ fontSize: 13, borderRadius: 8, border: '1px solid #e2e8f0' }}
+            contentStyle={{ fontSize: 13, borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(16,24,40,.08)' }}
+          />
+          <Area
+            type="monotone"
+            dataKey="value"
+            stroke="none"
+            fill="url(#trendFill)"
+            isAnimationActive={false}
           />
           <Line
             type="monotone"
             dataKey="value"
-            stroke="#2563eb"
-            strokeWidth={2}
-            dot={{ r: 4, fill: '#2563eb', cursor: 'pointer' }}
-            activeDot={{ r: 6, cursor: 'pointer' }}
+            stroke="#7982c9"
+            strokeWidth={2.5}
+            dot={{ r: 4, fill: '#7982c9', cursor: 'pointer' }}
+            activeDot={{ r: 7, cursor: 'pointer' }}
           />
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
       {referenceLow != null && referenceHigh != null && !ordinal && (
         <p className="text-xs text-slate-400 mt-2 px-2">

@@ -1,6 +1,8 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { Trash2 } from 'lucide-react'
+import Button from '@/components/ui/Button'
 
 export default function DeleteReportButton({
   reportId,
@@ -21,11 +23,8 @@ export default function DeleteReportButton({
   }
 
   return (
-    <button
-      onClick={onDelete}
-      className="text-sm text-slate-500 border border-slate-300 px-3 py-2 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-    >
+    <Button variant="danger" size="sm" icon={<Trash2 size={15} />} onClick={onDelete}>
       Delete report
-    </button>
+    </Button>
   )
 }

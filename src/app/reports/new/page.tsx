@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import ReportForm from '@/components/ReportForm'
+import PageHeader from '@/components/ui/PageHeader'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,20 +17,20 @@ export default async function NewReportPage({
     const patients = await prisma.patient.findMany({ orderBy: { createdAt: 'asc' } })
     return (
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 mb-6">New report — choose patient</h1>
-        <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 max-w-lg">
+        <PageHeader title="New report" subtitle="Choose a patient" />
+        <div className="bg-surface rounded-card border border-slate-200/80 shadow-card divide-y divide-slate-100 max-w-lg overflow-hidden">
           {patients.map((p) => (
             <Link
               key={p.id}
               href={`/reports/new?patientId=${p.id}`}
-              className="block px-5 py-4 hover:bg-slate-50 font-medium text-slate-700"
+              className="block px-5 py-4 hover:bg-slate-50 font-medium text-slate-700 transition"
             >
               {p.name}
             </Link>
           ))}
           {patients.length === 0 && (
             <p className="px-5 py-4 text-slate-500">
-              No patients yet. <Link className="text-blue-600 hover:underline" href="/patients/new">Add one first.</Link>
+              No patients yet. <Link className="text-brand-600 hover:underline" href="/patients/new">Add one first.</Link>
             </p>
           )}
         </div>
@@ -42,8 +43,7 @@ export default async function NewReportPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-800 mb-1">New report</h1>
-      <p className="text-sm text-slate-500 mb-6">for {patient.name}</p>
+      <PageHeader title="New report" subtitle={`for ${patient.name}`} />
       <ReportForm patientId={patient.id} />
     </div>
   )

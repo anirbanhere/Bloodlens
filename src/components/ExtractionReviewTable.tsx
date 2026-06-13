@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Button from '@/components/ui/Button'
 
 type Candidate = {
   id: string
@@ -17,9 +18,9 @@ type Candidate = {
 }
 
 const CONFIDENCE_BADGE: Record<string, string> = {
-  high: 'bg-green-50 text-green-700',
-  medium: 'bg-amber-50 text-amber-700',
-  low: 'bg-red-50 text-red-700',
+  high: 'bg-ok-50 text-ok-700',
+  medium: 'bg-warn-50 text-warn-700',
+  low: 'bg-alert-50 text-alert-700',
 }
 
 export default function ExtractionReviewTable({
@@ -79,16 +80,16 @@ export default function ExtractionReviewTable({
 
   if (confirmed && result) {
     return (
-      <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
-        <p className="text-green-800 font-medium text-lg mb-1">
+      <div className="bg-ok-50 border border-ok-100 rounded-card p-6 text-center">
+        <p className="text-ok-700 font-medium text-lg mb-1">
           {result.saved} marker{result.saved !== 1 ? 's' : ''} saved
         </p>
         {result.skipped > 0 && (
-          <p className="text-green-700 text-sm mb-3">{result.skipped} skipped (no value)</p>
+          <p className="text-ok-600 text-sm mb-3">{result.skipped} skipped (no value)</p>
         )}
         <button
           onClick={() => router.push(`/reports/${reportId}`)}
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-brand-600 hover:underline"
         >
           View report →
         </button>
@@ -121,13 +122,13 @@ export default function ExtractionReviewTable({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {visible.map((c) => (
-                  <tr key={c.id} className={c.status === 'accepted' ? 'bg-green-50' : ''}>
+                  <tr key={c.id} className={c.status === 'accepted' ? 'bg-ok-50' : ''}>
                     <td className="py-2 pr-3">
                       <input
                         type="checkbox"
                         checked={c.status === 'accepted'}
                         onChange={() => toggleStatus(c)}
-                        className="rounded accent-green-600"
+                        className="rounded accent-brand-500"
                       />
                     </td>
                     <td className="py-2 pr-3 font-medium text-slate-700">{c.markerName}</td>
@@ -164,8 +165,8 @@ export default function ExtractionReviewTable({
                         </td>
                         <td className="py-2">
                           <span className="flex gap-3 whitespace-nowrap">
-                            <button onClick={() => setEditingId(c.id)} className="text-xs text-blue-600 hover:underline">Edit</button>
-                            <button onClick={() => ignoreCandidate(c)} className="text-xs text-slate-400 hover:text-red-600">Ignore</button>
+                            <button onClick={() => setEditingId(c.id)} className="text-xs text-brand-600 hover:underline">Edit</button>
+                            <button onClick={() => ignoreCandidate(c)} className="text-xs text-slate-400 hover:text-alert-600">Ignore</button>
                           </span>
                         </td>
                       </>
@@ -180,19 +181,15 @@ export default function ExtractionReviewTable({
             <p className="text-xs text-slate-400 mt-2">{ignored.length} row{ignored.length !== 1 ? 's' : ''} ignored</p>
           )}
 
-          {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+          {error && <p className="text-sm text-alert-600 mt-3">{error}</p>}
 
           <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-200">
             <p className="text-sm text-slate-500">
               {accepted.length} marker{accepted.length !== 1 ? 's' : ''} selected
             </p>
-            <button
-              onClick={confirmAll}
-              disabled={saving || accepted.length === 0}
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
-            >
+            <Button onClick={confirmAll} disabled={saving || accepted.length === 0}>
               {saving ? 'Saving…' : `Save ${accepted.length} marker${accepted.length !== 1 ? 's' : ''} to report`}
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -225,7 +222,7 @@ function EditRow({
     })
   }
 
-  const inp = 'border border-slate-300 rounded px-1.5 py-1 text-xs w-20 focus:outline-none focus:ring-1 focus:ring-blue-500'
+  const inp = 'border border-slate-300 rounded px-1.5 py-1 text-xs w-20 focus:outline-none focus:ring-1 focus:ring-brand-400'
 
   return (
     <>
@@ -243,8 +240,8 @@ function EditRow({
       </td>
       <td colSpan={3} className="py-1">
         <span className="flex gap-2">
-          <button onClick={save} className="text-xs text-blue-600 hover:underline">Save</button>
-          <button onClick={onCancel} className="text-xs text-slate-400">Cancel</button>
+          <button onClick={save} className="text-xs text-brand-600 hover:underline">Save</button>
+          <button onClick={onCancel} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
         </span>
       </td>
     </>

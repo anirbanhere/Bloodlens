@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Button from '@/components/ui/Button'
 
 export default function ReportForm({ patientId }: { patientId: string }) {
   const router = useRouter()
@@ -30,33 +31,21 @@ export default function ReportForm({ patientId }: { patientId: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="bg-white rounded-xl border border-slate-200 p-6 max-w-lg space-y-4">
+    <form onSubmit={onSubmit} className="bg-surface rounded-card border border-slate-200/80 shadow-card p-6 max-w-lg space-y-4">
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Report date</label>
-        <input
-          name="reportDate"
-          type="date"
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <input name="reportDate" type="date" className="input" />
         <p className="text-xs text-slate-400 mt-1">
           Optional — leave blank to auto-fill from the report when you upload and extract a PDF.
         </p>
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Lab name</label>
-        <input
-          name="labName"
-          placeholder="e.g. Apollo Diagnostics"
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <input name="labName" placeholder="e.g. Apollo Diagnostics" className="input" />
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Report type</label>
-        <select
-          name="reportType"
-          defaultValue=""
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
+        <select name="reportType" defaultValue="" className="input">
           <option value="">—</option>
           <option value="blood test">Blood test</option>
           <option value="urine test">Urine test</option>
@@ -66,29 +55,16 @@ export default function ReportForm({ patientId }: { patientId: string }) {
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
-        <textarea
-          name="notes"
-          rows={2}
-          placeholder="e.g. Before doctor visit"
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <textarea name="notes" rows={2} placeholder="e.g. Before doctor visit" className="input" />
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-alert-600">{error}</p>}
       <div className="flex gap-3">
-        <button
-          type="submit"
-          disabled={saving}
-          className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-        >
+        <Button type="submit" disabled={saving}>
           {saving ? 'Creating…' : 'Create report'}
-        </button>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="text-slate-600 px-4 py-2 rounded-lg text-sm hover:bg-slate-100"
-        >
+        </Button>
+        <Button type="button" variant="ghost" onClick={() => router.back()}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   )

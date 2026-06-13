@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import MarkerEntry from '@/components/MarkerEntry'
 import FileSection from '@/components/FileSection'
 import DeleteReportButton from '@/components/DeleteReportButton'
+import PageHeader from '@/components/ui/PageHeader'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,20 +26,16 @@ export default async function ReportPage({
 
   return (
     <div>
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
-        <div>
-          <p className="text-sm text-slate-500">
-            <Link href={`/patients/${report.patientId}`} className="text-blue-600 hover:underline">
-              {report.patient.name}
-            </Link>
-          </p>
-          <h1 className="text-2xl font-bold text-slate-800">Report — {report.reportDate || 'date not set'}</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            {[report.labName, report.reportType, report.notes].filter(Boolean).join(' · ') || ''}
-          </p>
-        </div>
-        <DeleteReportButton reportId={report.id} patientId={report.patientId} />
-      </div>
+      <PageHeader
+        eyebrow={
+          <Link href={`/patients/${report.patientId}`} className="text-brand-600 hover:underline">
+            ← {report.patient.name}
+          </Link>
+        }
+        title={`Report — ${report.reportDate || 'date not set'}`}
+        subtitle={[report.labName, report.reportType, report.notes].filter(Boolean).join(' · ') || undefined}
+        actions={<DeleteReportButton reportId={report.id} patientId={report.patientId} />}
+      />
 
       <MarkerEntry reportId={report.id} markers={report.markerResults} />
 

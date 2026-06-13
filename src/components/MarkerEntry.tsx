@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { STATUS_LABELS, STATUS_CLASSES, type MarkerStatus } from '@/lib/status'
+import { type MarkerStatus } from '@/lib/status'
 import { ORDINAL_OPTIONS } from '@/lib/qualitative'
+import Button from '@/components/ui/Button'
+import { StatusBadge } from '@/components/ui/Badge'
 
 type Definition = {
   markerKey: string
@@ -27,7 +29,7 @@ type MarkerRow = {
 }
 
 const inputCls =
-  'border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  'border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400'
 
 export default function MarkerEntry({
   reportId,
@@ -180,10 +182,10 @@ export default function MarkerEntry({
     <div className="space-y-6">
       {/* Existing markers */}
       {markers.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+        <div className="bg-surface rounded-card border border-slate-200/80 shadow-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
+              <tr className="text-left text-xs text-slate-500 border-b border-slate-200 bg-slate-50/80">
                 <th className="px-4 py-2.5 font-medium">Marker</th>
                 <th className="px-4 py-2.5 font-medium text-right">Value</th>
                 <th className="px-4 py-2.5 font-medium">Unit</th>
@@ -195,7 +197,7 @@ export default function MarkerEntry({
             <tbody className="divide-y divide-slate-100">
               {markers.map((m) =>
                 editingId === m.id ? (
-                  <tr key={m.id} className="bg-blue-50/40">
+                  <tr key={m.id} className="bg-brand-50/40">
                     <td colSpan={6} className="px-4 py-3">
                       <EditMarkerForm
                         row={m}
@@ -229,15 +231,13 @@ export default function MarkerEntry({
                         : '—'}
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={`inline-block text-xs px-2 py-0.5 rounded-full border ${STATUS_CLASSES[(m.status as MarkerStatus) ?? 'unknown']}`}>
-                        {STATUS_LABELS[(m.status as MarkerStatus) ?? 'unknown']}
-                      </span>
+                      <StatusBadge status={(m.status as MarkerStatus) ?? 'unknown'} />
                     </td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                      <button onClick={() => setEditingId(m.id)} className="text-xs text-blue-600 hover:underline mr-3">
+                      <button onClick={() => setEditingId(m.id)} className="text-xs text-brand-600 hover:underline mr-3">
                         Edit
                       </button>
-                      <button onClick={() => deleteMarker(m.id)} className="text-xs text-slate-400 hover:text-red-600">
+                      <button onClick={() => deleteMarker(m.id)} className="text-xs text-slate-400 hover:text-alert-600">
                         Delete
                       </button>
                     </td>
@@ -250,7 +250,7 @@ export default function MarkerEntry({
       )}
 
       {/* Add marker form */}
-      <form onSubmit={addMarker} className="bg-white rounded-xl border border-slate-200 p-5">
+      <form onSubmit={addMarker} className="bg-surface rounded-card border border-slate-200/80 shadow-card p-5">
         <h3 className="font-medium text-slate-700 mb-4">Add marker value</h3>
         <div className="flex flex-wrap items-end gap-3">
           <label className="text-xs text-slate-500">
@@ -297,15 +297,11 @@ export default function MarkerEntry({
             Ref high
             <input name="referenceHigh" type="number" step="any" className={`${inputCls} block w-20 mt-1`} />
           </label>
-          <button
-            type="submit"
-            disabled={busy || !markerKey}
-            className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
+          <Button type="submit" size="sm" disabled={busy || !markerKey}>
             {busy ? 'Adding…' : 'Add'}
-          </button>
+          </Button>
         </div>
-        {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+        {error && <p className="text-sm text-alert-600 mt-3">{error}</p>}
       </form>
     </div>
   )
@@ -382,12 +378,12 @@ function EditMarkerForm({
         Ref high
         <input value={refHigh} onChange={(e) => setRefHigh(e.target.value)} type="number" step="any" className={`${inputCls} block w-20 mt-1`} />
       </label>
-      <button type="submit" disabled={busy} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
+      <Button type="submit" size="sm" disabled={busy}>
         Save
-      </button>
-      <button type="button" onClick={onCancel} className="text-slate-500 px-2 py-1.5 text-sm hover:text-slate-700">
+      </Button>
+      <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
         Cancel
-      </button>
+      </Button>
     </form>
   )
 }

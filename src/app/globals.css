@@ -1,26 +1,78 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  /* ── Brand (indigo) — primary accent ─────────────────────── */
+  --color-brand-50: #f2f3fb;
+  --color-brand-100: #e4e6f6;
+  --color-brand-200: #c9cdec;
+  --color-brand-300: #a8aee0;
+  --color-brand-400: #9097d6;
+  --color-brand-500: #7982c9;
+  --color-brand-600: #616bb2;
+  --color-brand-700: #4e5790;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* ── OK (green) — in range / success ──────────────────────── */
+  --color-ok-50: #f1f8ef;
+  --color-ok-100: #ddeed9;
+  --color-ok-500: #83c979;
+  --color-ok-600: #5fa755;
+  --color-ok-700: #4a8242;
+
+  /* ── Alert (rose) — above range / danger ──────────────────── */
+  --color-alert-50: #fbf1f2;
+  --color-alert-100: #f3dadd;
+  --color-alert-500: #c97982;
+  --color-alert-600: #b25c66;
+  --color-alert-700: #8f4751;
+
+  /* ── Warn (muted gold) — below range ──────────────────────── */
+  --color-warn-50: #fbf6ec;
+  --color-warn-100: #f3e7c9;
+  --color-warn-500: #c9a979;
+  --color-warn-600: #b08e5c;
+  --color-warn-700: #8f7147;
+
+  /* ── Surfaces ─────────────────────────────────────────────── */
+  --color-canvas: #f7f8fb;
+  --color-surface: #ffffff;
+
+  /* ── Shape & depth ────────────────────────────────────────── */
+  --radius-card: 1rem;
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow-card-hover: 0 6px 20px rgba(121, 130, 201, 0.14);
+
+  /* ── Fonts (loaded via next/font in layout.tsx) ───────────── */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--color-canvas);
+  color: #1e293b; /* slate-800 */
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Shared form input style used across forms. */
+.input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid #cbd5e1; /* slate-300 */
+  background: #fff;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #1e293b;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--color-brand-400);
+  box-shadow: 0 0 0 3px rgba(121, 130, 201, 0.2);
+}
+.input::placeholder {
+  color: #94a3b8; /* slate-400 */
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
 }

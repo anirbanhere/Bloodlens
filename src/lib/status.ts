@@ -46,10 +46,10 @@ export const STATUS_LABELS: Record<MarkerStatus, string> = {
   unknown: '—',
 }
 
-// Tailwind classes for status badges/cells
+// Tailwind classes for status badges/cells (brand palette tokens)
 export const STATUS_CLASSES: Record<MarkerStatus, string> = {
-  high: 'bg-red-50 text-red-700 border-red-200',
-  low: 'bg-amber-50 text-amber-700 border-amber-200',
-  normal: 'bg-green-50 text-green-700 border-green-200',
+  high: 'bg-alert-50 text-alert-700 border-alert-100',
+  low: 'bg-warn-50 text-warn-700 border-warn-100',
+  normal: 'bg-ok-50 text-ok-700 border-ok-100',
   unknown: 'bg-slate-50 text-slate-500 border-slate-200',
 }

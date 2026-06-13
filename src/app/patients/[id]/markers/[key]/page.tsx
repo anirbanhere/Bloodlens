@@ -2,7 +2,9 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import TrendChart, { type TrendPoint } from '@/components/TrendChart'
-import { STATUS_LABELS, STATUS_CLASSES, type MarkerStatus } from '@/lib/status'
+import { type MarkerStatus } from '@/lib/status'
+import Card from '@/components/ui/Card'
+import { StatusBadge } from '@/components/ui/Badge'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,44 +46,42 @@ export default async function MarkerDetailPage({
   return (
     <div>
       <p className="text-sm text-slate-500 mb-1">
-        <Link href={`/patients/${id}`} className="text-blue-600 hover:underline">{patient.name}</Link>
+        <Link href={`/patients/${id}`} className="text-brand-600 hover:underline">{patient.name}</Link>
         {' · '}
-        <Link href={`/patients/${id}/table`} className="text-blue-600 hover:underline">Marker table</Link>
+        <Link href={`/patients/${id}/table`} className="text-brand-600 hover:underline">Marker table</Link>
       </p>
-      <h1 className="text-2xl font-bold text-slate-800 mb-1">{definition.canonicalName}</h1>
+      <h1 className="text-2xl font-bold text-slate-800 mb-1 tracking-tight">{definition.canonicalName}</h1>
       <p className="text-sm text-slate-500 mb-6">{definition.category}</p>
 
       {points.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500">
+        <Card className="p-8 text-center text-slate-500">
           No values recorded for this marker yet.
-        </div>
+        </Card>
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <Card className="p-4">
               <p className="text-xs text-slate-400">Latest ({latest.report.reportDate})</p>
               <p className="text-xl font-semibold text-slate-800 mt-1 tabular-nums">
                 {latest.valueText ?? latest.value} <span className="text-sm font-normal text-slate-400">{latest.unit}</span>
               </p>
-            </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
+            </Card>
+            <Card className="p-4">
               <p className="text-xs text-slate-400">Previous</p>
               <p className="text-xl font-semibold text-slate-800 mt-1 tabular-nums">
                 {previous ? (previous.valueText ?? previous.value) : '—'}
               </p>
-            </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
+            </Card>
+            <Card className="p-4">
               <p className="text-xs text-slate-400">Change</p>
               <p className="text-xl font-semibold text-slate-800 mt-1 tabular-nums">
                 {change == null ? '—' : `${change > 0 ? '+' : ''}${Number(change.toFixed(2))}`}
               </p>
-            </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <p className="text-xs text-slate-400">Status</p>
-              <span className={`inline-block text-xs px-2 py-0.5 rounded-full border mt-2 ${STATUS_CLASSES[(latest.status as MarkerStatus) ?? 'unknown']}`}>
-                {STATUS_LABELS[(latest.status as MarkerStatus) ?? 'unknown']}
-              </span>
-            </div>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-slate-400 mb-2">Status</p>
+              <StatusBadge status={(latest.status as MarkerStatus) ?? 'unknown'} />
+            </Card>
           </div>
 
           <TrendChart
@@ -93,10 +93,10 @@ export default async function MarkerDetailPage({
           />
 
           <h2 className="font-semibold text-slate-700 mt-8 mb-3">History</h2>
-          <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+          <Card className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
+                <tr className="text-left text-xs text-slate-500 border-b border-slate-200 bg-slate-50/80">
                   <th className="px-4 py-2.5 font-medium">Date</th>
                   <th className="px-4 py-2.5 font-medium text-right">Value</th>
                   <th className="px-4 py-2.5 font-medium">Reference</th>
@@ -106,9 +106,9 @@ export default async function MarkerDetailPage({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {[...sorted].reverse().map((r) => (
-                  <tr key={r.id}>
+                  <tr key={r.id} className="even:bg-slate-50/40">
                     <td className="px-4 py-2.5">
-                      <Link href={`/reports/${r.reportId}`} className="text-blue-600 hover:underline">
+                      <Link href={`/reports/${r.reportId}`} className="text-brand-600 hover:underline">
                         {r.report.reportDate}
                       </Link>
                     </td>
@@ -121,16 +121,14 @@ export default async function MarkerDetailPage({
                         : '—'}
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={`inline-block text-xs px-2 py-0.5 rounded-full border ${STATUS_CLASSES[(r.status as MarkerStatus) ?? 'unknown']}`}>
-                        {STATUS_LABELS[(r.status as MarkerStatus) ?? 'unknown']}
-                      </span>
+                      <StatusBadge status={(r.status as MarkerStatus) ?? 'unknown'} />
                     </td>
                     <td className="px-4 py-2.5 text-slate-500">{r.report.labName ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </Card>
         </>
       )}
     </div>

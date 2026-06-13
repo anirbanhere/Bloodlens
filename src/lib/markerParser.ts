@@ -1,6 +1,8 @@
 /**
- * Parses raw text (from PDF or OCR) against the marker definition dictionary.
- * Returns candidate markers — user must review and confirm before they're saved.
+ * Parses reconstructed text rows (from PDF or OCR) against the marker dictionary.
+ * Each row is parsed left-to-right: the test name anchors the start of the row,
+ * the result value comes next, then the reference range. Returns candidates —
+ * the user must review and confirm before anything is saved.
  */
 
 export interface ParsedCandidate {
@@ -21,38 +23,43 @@ export interface MarkerDef {
   defaultUnit: string | null
 }
 
-function normalise(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9%/µ]/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
-/** Parse a numeric value from a token, returning null if not a number. */
-function parseNum(token: string): number | null {
-  const cleaned = token.replace(/[^0-9.\-]/g, '')
-  const n = parseFloat(cleaned)
-  return isFinite(n) ? n : null
-}
-
 /**
- * Looks for a reference range pattern like "3.5 - 5.0" or "(3.5-5.0)" or "3.5–5.0"
- * in a string. Returns [low, high] or null.
+ * Normalise a string for matching while preserving the characters that matter
+ * for numbers and ranges: digits, dot, hyphen, slash, percent, micro sign.
+ * Also strips thousands separators (2,50,000 -> 250000) and unifies dashes.
  */
-function parseRefRange(text: string): [number, number] | null {
-  const match = text.match(/(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)/)
-  if (!match) return null
-  const low = parseFloat(match[1])
-  const high = parseFloat(match[2])
-  if (!isFinite(low) || !isFinite(high) || low >= high) return null
-  return [low, high]
+function normalise(s: string): string {
+  return s
+    .replace(/[‒-―]/g, '-') // figure/en/em dashes -> hyphen
+    .replace(/(\d),(\d)/g, '$1$2') // thousands separators
+    .toLowerCase()
+    .replace(/[^a-z0-9.%/µ\- ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
-/** Tokenise a line into whitespace-separated tokens. */
-function tokenise(line: string): string[] {
-  return line.trim().split(/\s+/).filter(Boolean)
+/** Remove a leading serial number like "1." or "12)" from a row. */
+function stripLeadingSerial(line: string): string {
+  return line.replace(/^\s*\d{1,3}\s*[.)]\s+/, '')
+}
+
+const RANGE_RE = /(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/
+const PURE_NUMBER_RE = /^-?\d+(?:\.\d+)?$/
+
+/** First standalone numeric token in a string (rejects dates, IDs, ages, ranges). */
+function firstValue(text: string): number | null {
+  for (const tok of text.split(' ')) {
+    if (PURE_NUMBER_RE.test(tok)) {
+      const n = parseFloat(tok)
+      if (isFinite(n)) return n
+    }
+  }
+  return null
 }
 
 /**
- * Builds a lookup map: normalised alias → marker definition.
- * Longer aliases take priority (matched first via sort).
+ * Build a lookup of normalised alias -> definition, longest aliases first
+ * so "blood urea nitrogen" wins over "urea".
  */
 function buildAliasMap(defs: MarkerDef[]): Array<{ alias: string; def: MarkerDef }> {
   const entries: Array<{ alias: string; def: MarkerDef }> = []
@@ -60,11 +67,22 @@ function buildAliasMap(defs: MarkerDef[]): Array<{ alias: string; def: MarkerDef
     let aliases: string[] = []
     try { aliases = JSON.parse(def.aliases) } catch { aliases = [def.canonicalName] }
     for (const a of aliases) {
-      entries.push({ alias: normalise(a), def })
+      const alias = normalise(a)
+      if (alias) entries.push({ alias, def })
     }
   }
-  // Longer aliases first so "blood urea nitrogen" matches before "urea"
   return entries.sort((a, b) => b.alias.length - a.alias.length)
+}
+
+/**
+ * Does `normLine` begin with `alias` at a word boundary?
+ * Prevents "k" (potassium) from matching "ketone", "na" from matching "name", etc.
+ */
+function startsWithAlias(normLine: string, alias: string): boolean {
+  if (!normLine.startsWith(alias)) return false
+  const after = normLine[alias.length]
+  // End of string, or a separator/digit follows — not another letter.
+  return after === undefined || after === ' '
 }
 
 export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedCandidate[] {
@@ -73,53 +91,44 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
   const candidates: ParsedCandidate[] = []
   const seenKeys = new Set<string>()
 
-  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-    const line = lines[lineIdx]
+  for (const rawLine of lines) {
+    const line = stripLeadingSerial(rawLine.trim())
+    if (!line) continue
     const normLine = normalise(line)
 
-    // Try each alias against the normalised line
+    // Skip microscopy / cell-count rows — "/hpf" (per high-power field) and
+    // "microscopy" never appear in serum chemistry results, but their cell
+    // counts can collide with blood-count marker names (e.g. urine "WBC").
+    if (normLine.includes('hpf') || normLine.includes('microscopy')) continue
+
     for (const { alias, def } of aliasMap) {
-      if (!normLine.includes(alias)) continue
+      if (!startsWithAlias(normLine, alias)) continue
+      if (def.markerKey && seenKeys.has(def.markerKey)) break
 
-      // Don't extract the same marker key twice from one document
-      if (def.markerKey && seenKeys.has(def.markerKey)) continue
+      // Everything to the right of the test name holds value + unit + range.
+      const rest = normLine.slice(alias.length).trim()
 
-      // Gather context: current line + up to 2 surrounding lines
-      const ctx = [
-        lines[lineIdx - 1] ?? '',
-        line,
-        lines[lineIdx + 1] ?? '',
-        lines[lineIdx + 2] ?? '',
-      ].join(' ')
-
-      const tokens = tokenise(ctx)
-
-      // Find a numeric value near the match
-      let value: number | null = null
-      let unit: string | null = def.defaultUnit ?? null
+      // Reference range comes after the value in tabular layout — find it first,
+      // then search for the value only in the text that precedes it.
       let refLow: number | null = null
       let refHigh: number | null = null
-
-      for (let t = 0; t < tokens.length; t++) {
-        const n = parseNum(tokens[t])
-        if (n !== null && value === null) {
-          value = n
+      let valueText = rest
+      const rangeMatch = rest.match(RANGE_RE)
+      if (rangeMatch && rangeMatch.index !== undefined) {
+        const lo = parseFloat(rangeMatch[1])
+        const hi = parseFloat(rangeMatch[2])
+        if (isFinite(lo) && isFinite(hi) && lo < hi) {
+          refLow = lo
+          refHigh = hi
+          valueText = rest.slice(0, rangeMatch.index)
         }
       }
 
-      // Try to find a reference range anywhere in the context
-      const refMatch = parseRefRange(ctx)
-      if (refMatch) {
-        [refLow, refHigh] = refMatch
-        // If the value falls outside reference range by more than 10x, it's probably the range itself — skip
-        if (value !== null && refLow !== null && refHigh !== null) {
-          if (value === refLow || value === refHigh) value = null
-        }
-      }
+      const value = firstValue(valueText)
+      const unit = def.defaultUnit ?? null
 
-      // Confidence
       let confidence: 'high' | 'medium' | 'low'
-      if (value !== null && unit !== null) confidence = 'high'
+      if (value !== null && refLow !== null) confidence = 'high'
       else if (value !== null) confidence = 'medium'
       else confidence = 'low'
 
@@ -131,11 +140,11 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
         suggestedReferenceLow: refLow,
         suggestedReferenceHigh: refHigh,
         confidence,
-        sourceText: line.trim().slice(0, 200),
+        sourceText: line.slice(0, 200),
       })
 
       if (def.markerKey) seenKeys.add(def.markerKey)
-      break // One alias match per line is enough
+      break // one marker per row
     }
   }
 

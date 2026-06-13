@@ -34,6 +34,50 @@ export interface PdfExtractionResult {
   confidence: number // 1.0 for digital PDFs (text layer present), 0 for image-only
 }
 
+/**
+ * pdfjs returns text as positioned fragments with no line structure.
+ * Group fragments by their Y coordinate into visual rows, sort each row
+ * left-to-right by X, and join — reconstructing the original table layout.
+ */
+function reconstructLines(items: ReadonlyArray<unknown>): string {
+  const Y_TOLERANCE = 3 // fragments within 3 units of Y are on the same line
+
+  type Frag = { x: number; y: number; str: string }
+  const frags: Frag[] = []
+
+  for (const item of items) {
+    const it = item as { str?: string; transform?: number[] }
+    if (typeof it.str !== 'string' || !it.str.trim() || !it.transform) continue
+    frags.push({ x: it.transform[4], y: it.transform[5], str: it.str })
+  }
+
+  // Bucket fragments into rows by Y position
+  const rows: { y: number; frags: Frag[] }[] = []
+  for (const f of frags) {
+    let row = rows.find((r) => Math.abs(r.y - f.y) <= Y_TOLERANCE)
+    if (!row) {
+      row = { y: f.y, frags: [] }
+      rows.push(row)
+    }
+    row.frags.push(f)
+  }
+
+  // Top-to-bottom (PDF Y increases upward, so sort descending)
+  rows.sort((a, b) => b.y - a.y)
+
+  return rows
+    .map((r) =>
+      r.frags
+        .sort((a, b) => a.x - b.x)
+        .map((f) => f.str)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+    )
+    .filter(Boolean)
+    .join('\n')
+}
+
 export async function extractPdfText(buffer: Buffer): Promise<PdfExtractionResult> {
   const pdfjs = await getPdfjs()
 
@@ -46,11 +90,9 @@ export async function extractPdfText(buffer: Buffer): Promise<PdfExtractionResul
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
     const content = await page.getTextContent()
-    const pageText = content.items
-      .map((item) => ('str' in item ? item.str : ''))
-      .join(' ')
+    const pageText = reconstructLines(content.items)
     pageTexts.push(pageText)
-    totalChars += pageText.trim().length
+    totalChars += pageText.replace(/\s/g, '').length
   }
 
   const text = pageTexts.join('\n\n')

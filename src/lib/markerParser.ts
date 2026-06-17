@@ -56,7 +56,7 @@ const PURE_NUMBER_RE = /^-?\d+(?:\.\d+)?$/
 /** Recognised lab unit tokens — used to anchor the generic extractor and to
  *  read the unit that sits between the value and the reference range. */
 const UNIT_ALT =
-  '%|mg\\/d?l|g\\/d?l|mg\\/l|g\\/l|mmol\\/l|µmol\\/l|umol\\/l|mol\\/l|meq\\/l|u\\/l|iu\\/l|miu\\/l|µiu\\/ml|uiu\\/ml|ng\\/ml|pg\\/ml|ng\\/dl|µg\\/dl|ug\\/dl|µg\\/l|ug\\/l|fl|pg|mm\\/hr|cells\\/µl|cells\\/ul|million\\/µl|million\\/ul|lakh\\/µl|\\/hpf|\\/µl|\\/ul'
+  '%|mg\\/d?l|g\\/d?l|mg\\/l|g\\/l|mmol\\/l|µmol\\/l|umol\\/l|mol\\/l|meq\\/l|u\\/l|iu\\/l|miu\\/l|µiu\\/ml|uiu\\/ml|ng\\/ml|pg\\/ml|ng\\/dl|µg\\/dl|ug\\/dl|µg\\/l|ug\\/l|fl|pg|mm\\/hr|cells\\/µl|cells\\/ul|cells\\/mm3|cells\\/mm³|million\\/µl|million\\/ul|lakh\\/µl|\\/hpf|\\/µl|\\/ul|\\/mm3|\\/mm³'
 const UNIT_RE = new RegExp(`(?:^| )(?:${UNIT_ALT})(?: |$)`)
 const SINGLE_UNIT_RE = new RegExp(`^(?:${UNIT_ALT})$`)
 
@@ -70,6 +70,7 @@ function prettifyUnit(u: string): string {
     .replace(/^miu/, 'mIU')
     .replace(/^uiu/, 'µIU')
     .replace(/ul$/, 'µL')
+    .replace(/mm3$/, 'mm³')
     .replace(/^u\//, 'U/')
 }
 

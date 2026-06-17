@@ -53,6 +53,32 @@ function stripLeadingSerial(line: string): string {
 const RANGE_RE = /(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/
 const PURE_NUMBER_RE = /^-?\d+(?:\.\d+)?$/
 
+/** Recognised lab unit tokens — used to anchor the generic extractor and to
+ *  read the unit that sits between the value and the reference range. */
+const UNIT_ALT =
+  '%|mg\\/d?l|g\\/d?l|mg\\/l|g\\/l|mmol\\/l|µmol\\/l|umol\\/l|mol\\/l|meq\\/l|u\\/l|iu\\/l|miu\\/l|µiu\\/ml|uiu\\/ml|ng\\/ml|pg\\/ml|ng\\/dl|µg\\/dl|ug\\/dl|µg\\/l|ug\\/l|fl|pg|mm\\/hr|cells\\/µl|cells\\/ul|million\\/µl|million\\/ul|lakh\\/µl|\\/hpf|\\/µl|\\/ul'
+const UNIT_RE = new RegExp(`(?:^| )(?:${UNIT_ALT})(?: |$)`)
+const SINGLE_UNIT_RE = new RegExp(`^(?:${UNIT_ALT})$`)
+
+/** Restore conventional casing on a normalised (lowercased) unit token. */
+function prettifyUnit(u: string): string {
+  return u
+    .replace(/\/dl$/, '/dL')
+    .replace(/\/l$/, '/L')
+    .replace(/\/ml$/, '/mL')
+    .replace(/^iu/, 'IU')
+    .replace(/^miu/, 'mIU')
+    .replace(/^uiu/, 'µIU')
+    .replace(/ul$/, 'µL')
+    .replace(/^u\//, 'U/')
+}
+
+/** Header/footer/metadata keywords — generic rows containing these are skipped. */
+const META_RE = /\b(?:age|years|yrs|d\.?o\.?b|date|page|phone|mobile|sample|specimen|collected|received|registered|reported|report|patient|name|sex|gender|referred|ref by|reg no|uhid|mrn|barcode|address|lab no|accession|method|comment|comments|interpretation|signature|verified|technologist|consultant)\b/
+
+/** A trailing specimen word adds nothing to a marker name; trim it for display. */
+const TRAILING_SPECIMEN_RE = /[\s,]+(?:serum|plasma|ser\/plas|blood|whole blood|urine|csf)\s*$/i
+
 /** First standalone numeric token in a string (rejects dates, IDs, ages, ranges). */
 function firstValue(text: string): number | null {
   for (const tok of text.split(' ')) {
@@ -62,6 +88,87 @@ function firstValue(text: string): number | null {
     }
   }
   return null
+}
+
+/**
+ * Generic row extractor — the safety net for tests NOT in the dictionary.
+ *
+ * A dictionary will never cover the long tail (C3, C4, niche assays), and every
+ * lab spells names differently. So any row shaped `name … value … [unit] [range]`
+ * is captured as an UNKNOWN candidate (markerKey = null) for the user to confirm,
+ * rather than dropped. The dictionary's job is to *enrich* recognised rows, never
+ * to gate extraction.
+ *
+ * The value is read from the RIGHT (the number just before the reference range /
+ * unit), because test names themselves contain digits — e.g. "COMPLEMENT 3 (C3),
+ * SERUM 145 mg/dl 90 - 180" must yield name="Complement 3 (C3), Serum", value=145,
+ * not name="Complement", value=3.
+ */
+function genericRow(
+  rawLine: string,
+  normLine: string
+): Omit<ParsedCandidate, 'sourceText'> | null {
+  if (META_RE.test(normLine)) return null
+
+  // Reference range first; the value sits just before it.
+  let refLow: number | null = null
+  let refHigh: number | null = null
+  let region = normLine
+  const rangeMatch = normLine.match(RANGE_RE)
+  if (rangeMatch && rangeMatch.index !== undefined) {
+    const lo = parseFloat(rangeMatch[1])
+    const hi = parseFloat(rangeMatch[2])
+    if (isFinite(lo) && isFinite(hi) && lo < hi) {
+      refLow = lo
+      refHigh = hi
+      region = normLine.slice(0, rangeMatch.index)
+    }
+  }
+
+  const hasUnit = UNIT_RE.test(normLine)
+  // Need an anchor: a reference range or a recognised unit. Otherwise a bare
+  // "name number" line is too ambiguous to trust (could be an ID, age, etc.).
+  if (refLow === null && !hasUnit) return null
+
+  // Value = last standalone number in the region before the range.
+  const toks = region.split(' ')
+  let valueIdx = -1
+  for (let i = toks.length - 1; i >= 0; i--) {
+    if (PURE_NUMBER_RE.test(toks[i])) { valueIdx = i; break }
+  }
+  if (valueIdx === -1) return null
+  const value = parseFloat(toks[valueIdx])
+  if (!isFinite(value)) return null
+
+  // Unit, if any, sits in the token immediately after the value ("145 mg/dl").
+  let unit: string | null = null
+  const afterTok = toks[valueIdx + 1]
+  if (afterTok && SINGLE_UNIT_RE.test(afterTok)) unit = prettifyUnit(afterTok)
+
+  // Name = everything before the value token; must carry real letters.
+  let name = toks.slice(0, valueIdx).join(' ').trim()
+  name = name.replace(TRAILING_SPECIMEN_RE, '').trim()
+  const alphaCount = (name.match(/[a-z]/g) ?? []).length
+  if (alphaCount < 3 || name.length < 3 || name.length > 48) return null
+  if (!/[a-z]{3,}/.test(name)) return null
+
+  // Prefer the original (cased, punctuated) name for display.
+  const valTok = toks[valueIdx]
+  const idx = rawLine.indexOf(valTok)
+  let displayName = idx > 2 ? rawLine.slice(0, idx).trim() : name
+  displayName = displayName.replace(/[\s:,\-]+$/, '').replace(TRAILING_SPECIMEN_RE, '').trim()
+  if (displayName.length < 3 || displayName.length > 60) displayName = name
+
+  return {
+    markerKey: null,
+    markerName: displayName,
+    suggestedValue: value,
+    suggestedValueText: null,
+    suggestedUnit: unit,
+    suggestedReferenceLow: refLow,
+    suggestedReferenceHigh: refHigh,
+    confidence: refLow !== null ? 'medium' : 'low',
+  }
 }
 
 /**
@@ -110,6 +217,7 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
     // are excluded — this resolves the urine-vs-blood WBC/RBC alias collision.
     const isMicroscopyRow = normLine.includes('hpf')
 
+    let matched = false
     for (const { alias, def } of aliasMap) {
       const isMicroscopyDef = def.category === MICROSCOPY_CATEGORY
       if (isMicroscopyRow !== isMicroscopyDef) continue
@@ -189,7 +297,17 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
       })
 
       if (def.markerKey) seenKeys.add(def.markerKey)
+      matched = true
       break // one marker per row
+    }
+
+    // No dictionary marker claimed this row — try the generic extractor so
+    // unknown tests (C3, C4, anything) are still captured for user review.
+    if (!matched) {
+      const generic = genericRow(line, normLine)
+      if (generic) {
+        candidates.push({ ...generic, sourceText: line.slice(0, 200) })
+      }
     }
   }
 

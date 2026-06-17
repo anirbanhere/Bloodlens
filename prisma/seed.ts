@@ -1,5 +1,7 @@
 import { PrismaClient } from '../src/generated/prisma/client'
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import 'dotenv/config'
 
 const dbUrl = process.env.DATABASE_URL ?? 'file:./dev.db'
@@ -90,17 +92,62 @@ const markers = [
   { markerKey: 'urine_crystals', canonicalName: 'Crystals', category: 'Urine Microscopy', aliases: ['crystals', 'crystal'], defaultUnit: '/HPF', description: 'Urine crystals per high-power field', valueType: 'numeric' },
 ]
 
+interface SeedMarker {
+  markerKey: string
+  canonicalName: string
+  category: string
+  aliases: string[]
+  defaultUnit: string | null
+  description: string | null
+  valueType?: string
+}
+
+/**
+ * LOINC-derived markers (prisma/markers.loinc.json), built by
+ * scripts/build_loinc_markers.py from the LOINC Top-2000 ranking. These are
+ * ENRICHMENT: the hand-curated `markers` above always win on any markerKey or
+ * alias collision (they carry India-specific aliases and units). LOINC fills the
+ * long tail (C3, C4, immunoglobulins, …) the hand-curated list never covered.
+ */
+function loadLoincMarkers(): SeedMarker[] {
+  try {
+    const raw = readFileSync(join(__dirname, 'markers.loinc.json'), 'utf-8')
+    return JSON.parse(raw) as SeedMarker[]
+  } catch {
+    console.warn('markers.loinc.json not found — seeding hand-curated markers only.')
+    return []
+  }
+}
+
+/** Hand-curated markers take precedence; LOINC entries are dropped on any
+ *  markerKey or alias collision so the matcher never has two defs for one name. */
+function mergeMarkers(curated: SeedMarker[], loinc: SeedMarker[]): SeedMarker[] {
+  const usedKeys = new Set(curated.map((m) => m.markerKey))
+  const usedAliases = new Set(curated.flatMap((m) => m.aliases.map((a) => a.toLowerCase())))
+  const merged = [...curated]
+  for (const m of loinc) {
+    if (usedKeys.has(m.markerKey)) continue
+    const aliases = m.aliases.filter((a) => !usedAliases.has(a.toLowerCase()))
+    if (aliases.length === 0) continue
+    merged.push({ ...m, aliases })
+    usedKeys.add(m.markerKey)
+    aliases.forEach((a) => usedAliases.add(a.toLowerCase()))
+  }
+  return merged
+}
+
 async function main() {
   console.log('Seeding marker definitions...')
-  for (const m of markers) {
-    const valueType = (m as { valueType?: string }).valueType ?? 'numeric'
+  const allMarkers = mergeMarkers(markers as SeedMarker[], loadLoincMarkers())
+  for (const m of allMarkers) {
+    const valueType = m.valueType ?? 'numeric'
     await prisma.markerDefinition.upsert({
       where: { markerKey: m.markerKey },
       update: { canonicalName: m.canonicalName, category: m.category, aliases: JSON.stringify(m.aliases), defaultUnit: m.defaultUnit, description: m.description, valueType },
       create: { markerKey: m.markerKey, canonicalName: m.canonicalName, category: m.category, aliases: JSON.stringify(m.aliases), defaultUnit: m.defaultUnit, description: m.description, valueType },
     })
   }
-  console.log(`Seeded ${markers.length} markers.`)
+  console.log(`Seeded ${allMarkers.length} markers (${markers.length} hand-curated + ${allMarkers.length - markers.length} from LOINC).`)
 }
 
 main()

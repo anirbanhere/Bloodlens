@@ -1,6 +1,44 @@
 import { prisma } from '@/lib/db'
 import { statusForType } from '@/lib/status'
 
+/** Stable key from a free-text marker name, e.g. "Complement 3 (C3)" -> "custom_complement_3_c3". */
+function customKey(name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 48)
+  return `custom_${slug || 'marker'}`
+}
+
+/**
+ * Create (or reuse) a MarkerDefinition for a user-confirmed unknown marker.
+ * Returns the markerKey and registers its valueType in `typeByKey`. This is the
+ * on-device "learn the mapping" step: once confirmed, the same test auto-matches
+ * next time via the new alias.
+ */
+async function ensureCustomDefinition(
+  name: string,
+  value: number | null,
+  valueText: string | null,
+  typeByKey: Map<string, string>
+): Promise<string> {
+  const markerKey = customKey(name)
+  const valueType = value !== null ? 'numeric' : valueText ? 'qualitative' : 'numeric'
+  const alias = name.toLowerCase().replace(/\s+/g, ' ').trim()
+  await prisma.markerDefinition.upsert({
+    where: { markerKey },
+    update: {},
+    create: {
+      markerKey,
+      canonicalName: name,
+      category: 'Other / Unrecognised',
+      aliases: JSON.stringify([alias]),
+      defaultUnit: null,
+      description: 'User-added from an unrecognised report row',
+      valueType,
+    },
+  })
+  typeByKey.set(markerKey, valueType)
+  return markerKey
+}
+
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ eid: string }> }
@@ -32,7 +70,13 @@ export async function POST(
     // Save if we have either a numeric value or a text value.
     if (c.suggestedValue === null && !c.suggestedValueText) { skipped++; continue }
 
-    const markerKey = c.markerKey ?? 'custom'
+    // An unknown (generically-extracted) candidate has no markerKey. Mint a
+    // MarkerDefinition for it on confirm so the FK holds and the marker becomes
+    // trendable — this is how the dictionary learns from what the user uploads.
+    let markerKey = c.markerKey
+    if (!markerKey) {
+      markerKey = await ensureCustomDefinition(c.markerName, c.suggestedValue, c.suggestedValueText, typeByKey)
+    }
     const valueType = typeByKey.get(markerKey) ?? 'numeric'
     const status = statusForType(valueType, c.suggestedValue, c.suggestedReferenceLow, c.suggestedReferenceHigh)
 

@@ -100,6 +100,30 @@ export default function ExtractionReviewTable({
   const visible = candidates.filter((c) => c.status !== 'ignored')
   const ignored = candidates.filter((c) => c.status === 'ignored')
 
+  // Build the row list with a divider inserted whenever the confidence tier changes.
+  type DividerRow = { type: 'divider'; tier: string }
+  type CandRow = { type: 'candidate'; c: Candidate }
+  const rows: Array<DividerRow | CandRow> = []
+  let lastTier = ''
+  for (const c of visible) {
+    if (c.confidence !== lastTier) {
+      rows.push({ type: 'divider', tier: c.confidence })
+      lastTier = c.confidence
+    }
+    rows.push({ type: 'candidate', c })
+  }
+
+  const TIER_LABEL: Record<string, string> = {
+    low:    'Low confidence — verify these carefully before accepting',
+    medium: 'Medium confidence',
+    high:   'High confidence',
+  }
+  const TIER_STYLE: Record<string, string> = {
+    low:    'bg-alert-50 text-alert-700 border-alert-100',
+    medium: 'bg-warn-50  text-warn-700  border-warn-100',
+    high:   'bg-ok-50    text-ok-700    border-ok-100',
+  }
+
   return (
     <div>
       {candidates.length === 0 ? (
@@ -121,58 +145,70 @@ export default function ExtractionReviewTable({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {visible.map((c) => (
-                  <tr key={c.id} className={c.status === 'accepted' ? 'bg-ok-50' : ''}>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="checkbox"
-                        checked={c.status === 'accepted'}
-                        onChange={() => toggleStatus(c)}
-                        className="rounded accent-brand-500"
-                      />
-                    </td>
-                    <td className="py-2 pr-3 font-medium text-slate-700">{c.markerName}</td>
+                {rows.map((row, i) => {
+                  if (row.type === 'divider') {
+                    return (
+                      <tr key={`div-${row.tier}-${i}`}>
+                        <td colSpan={8} className={`px-3 py-1.5 text-xs font-semibold border-y ${TIER_STYLE[row.tier]}`}>
+                          {TIER_LABEL[row.tier]}
+                        </td>
+                      </tr>
+                    )
+                  }
+                  const c = row.c
+                  return (
+                    <tr key={c.id} className={c.status === 'accepted' ? 'bg-ok-50' : ''}>
+                      <td className="py-2 pr-3">
+                        <input
+                          type="checkbox"
+                          checked={c.status === 'accepted'}
+                          onChange={() => toggleStatus(c)}
+                          className="rounded accent-brand-500"
+                        />
+                      </td>
+                      <td className="py-2 pr-3 font-medium text-slate-700">{c.markerName}</td>
 
-                    {editingId === c.id ? (
-                      <EditRow
-                        candidate={c}
-                        onSave={(updates) => {
-                          patchCandidate(c.id, updates)
-                          setEditingId(null)
-                        }}
-                        onCancel={() => setEditingId(null)}
-                      />
-                    ) : (
-                      <>
-                        <td className="py-2 pr-3 text-slate-800">
-                          {c.suggestedValueText ?? c.suggestedValue ?? <span className="text-slate-400">—</span>}
-                        </td>
-                        <td className="py-2 pr-3 text-slate-600">
-                          {c.suggestedUnit ?? <span className="text-slate-400">—</span>}
-                        </td>
-                        <td className="py-2 pr-3 text-slate-500 text-xs">
-                          {c.suggestedReferenceLow != null && c.suggestedReferenceHigh != null
-                            ? `${c.suggestedReferenceLow} – ${c.suggestedReferenceHigh}`
-                            : <span className="text-slate-300">—</span>}
-                        </td>
-                        <td className="py-2 pr-3">
-                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${CONFIDENCE_BADGE[c.confidence] ?? ''}`}>
-                            {c.confidence}
-                          </span>
-                        </td>
-                        <td className="py-2 pr-3 text-xs text-slate-400 max-w-[220px] truncate" title={c.sourceText ?? ''}>
-                          {c.sourceText ?? '—'}
-                        </td>
-                        <td className="py-2">
-                          <span className="flex gap-3 whitespace-nowrap">
-                            <button onClick={() => setEditingId(c.id)} className="text-xs text-brand-600 hover:underline">Edit</button>
-                            <button onClick={() => ignoreCandidate(c)} className="text-xs text-slate-400 hover:text-alert-600">Ignore</button>
-                          </span>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))}
+                      {editingId === c.id ? (
+                        <EditRow
+                          candidate={c}
+                          onSave={(updates) => {
+                            patchCandidate(c.id, updates)
+                            setEditingId(null)
+                          }}
+                          onCancel={() => setEditingId(null)}
+                        />
+                      ) : (
+                        <>
+                          <td className="py-2 pr-3 text-slate-800">
+                            {c.suggestedValueText ?? c.suggestedValue ?? <span className="text-slate-400">—</span>}
+                          </td>
+                          <td className="py-2 pr-3 text-slate-600">
+                            {c.suggestedUnit ?? <span className="text-slate-400">—</span>}
+                          </td>
+                          <td className="py-2 pr-3 text-slate-500 text-xs">
+                            {c.suggestedReferenceLow != null && c.suggestedReferenceHigh != null
+                              ? `${c.suggestedReferenceLow} – ${c.suggestedReferenceHigh}`
+                              : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="py-2 pr-3">
+                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${CONFIDENCE_BADGE[c.confidence] ?? ''}`}>
+                              {c.confidence}
+                            </span>
+                          </td>
+                          <td className="py-2 pr-3 text-xs text-slate-400 max-w-[220px] truncate" title={c.sourceText ?? ''}>
+                            {c.sourceText ?? '—'}
+                          </td>
+                          <td className="py-2">
+                            <span className="flex gap-3 whitespace-nowrap">
+                              <button onClick={() => setEditingId(c.id)} className="text-xs text-brand-600 hover:underline">Edit</button>
+                              <button onClick={() => ignoreCandidate(c)} className="text-xs text-slate-400 hover:text-alert-600">Ignore</button>
+                            </span>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

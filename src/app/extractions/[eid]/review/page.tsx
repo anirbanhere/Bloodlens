@@ -21,9 +21,17 @@ export default async function ExtractionReviewPage({
   })
   if (!extraction) notFound()
 
-  const candidates = await prisma.extractedCandidate.findMany({
+  const CONF_ORDER = { low: 0, medium: 1, high: 2 } as const
+  const candidatesRaw = await prisma.extractedCandidate.findMany({
     where: { extractionId: eid },
-    orderBy: { orderIndex: 'asc' }, // document order
+    orderBy: { orderIndex: 'asc' },
+  })
+  // Low-confidence rows first so they get manual attention before high-confidence ones.
+  // Within each tier, document order is preserved as a tiebreaker.
+  const candidates = [...candidatesRaw].sort((a, b) => {
+    const ca = CONF_ORDER[a.confidence as keyof typeof CONF_ORDER] ?? 1
+    const cb = CONF_ORDER[b.confidence as keyof typeof CONF_ORDER] ?? 1
+    return ca - cb || a.orderIndex - b.orderIndex
   })
 
   const report = extraction.report

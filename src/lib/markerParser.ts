@@ -74,6 +74,44 @@ function prettifyUnit(u: string): string {
     .replace(/^u\//, 'U/')
 }
 
+/** A number, optionally glued to a unit: "73", "73mm", "145mg/dl", "6.5%". */
+const NUM_UNIT_RE = new RegExp(`^(-?\\d+(?:\\.\\d+)?)(${UNIT_ALT})?$`, 'i')
+
+/**
+ * Find the result value (and its unit) in the text that precedes the reference
+ * range. Scans right-to-left and PREFERS a number that carries a unit — either
+ * glued ("73mm") or followed by a unit token ("73 mm") — over a bare number
+ * buried in the test name (e.g. the "1" in "ESR (1 Hour)"). Only if no number
+ * has a unit anywhere does it fall back to the last bare number.
+ *
+ * Returns the matched token index so callers can split off the name to its left.
+ */
+function extractValueUnit(region: string): { value: number | null; unit: string | null; index: number } {
+  const toks = region.trim().split(' ').filter(Boolean)
+
+  // Pass 1: a number that carries a unit (glued, or with the unit as next token).
+  for (let i = toks.length - 1; i >= 0; i--) {
+    const glued = toks[i].match(NUM_UNIT_RE)
+    if (glued && glued[2]) {
+      return { value: parseFloat(glued[1]), unit: prettifyUnit(glued[2].toLowerCase()), index: i }
+    }
+    if (PURE_NUMBER_RE.test(toks[i])) {
+      const next = toks[i + 1]
+      if (next && SINGLE_UNIT_RE.test(next)) {
+        return { value: parseFloat(toks[i]), unit: prettifyUnit(next), index: i }
+      }
+    }
+  }
+
+  // Pass 2: no unit found anywhere — take the last bare number before the range.
+  for (let i = toks.length - 1; i >= 0; i--) {
+    if (PURE_NUMBER_RE.test(toks[i])) {
+      return { value: parseFloat(toks[i]), unit: null, index: i }
+    }
+  }
+  return { value: null, unit: null, index: -1 }
+}
+
 /** Header/footer/metadata keywords — generic rows containing these are skipped. */
 const META_RE = /\b(?:age|years|yrs|d\.?o\.?b|date|page|phone|mobile|sample|specimen|collected|received|registered|reported|report|patient|name|sex|gender|referred|ref by|reg no|uhid|mrn|barcode|address|lab no|accession|method|comment|comments|interpretation|signature|verified|technologist|consultant)\b/
 
@@ -85,21 +123,6 @@ function firstValue(text: string): number | null {
   for (const tok of text.split(' ')) {
     if (PURE_NUMBER_RE.test(tok)) {
       const n = parseFloat(tok)
-      if (isFinite(n)) return n
-    }
-  }
-  return null
-}
-
-/** Last standalone numeric token in a string.
- *  Used for dictionary matches: the value is the last number before the range,
- *  because test names can contain digits (e.g. "ESR (1 Hour) … 73 mm 12-20"
- *  must yield 73, not 1). */
-function lastValue(text: string): number | null {
-  const toks = text.split(' ')
-  for (let i = toks.length - 1; i >= 0; i--) {
-    if (PURE_NUMBER_RE.test(toks[i])) {
-      const n = parseFloat(toks[i])
       if (isFinite(n)) return n
     }
   }
@@ -307,33 +330,29 @@ function genericRow(
   // "name number" line is too ambiguous to trust (could be an ID, age, etc.).
   if (refLow === null && !hasUnit) return null
 
-  // Value = last standalone number in the region before the range.
-  const toks = region.split(' ')
-  let valueIdx = -1
-  for (let i = toks.length - 1; i >= 0; i--) {
-    if (PURE_NUMBER_RE.test(toks[i])) { valueIdx = i; break }
-  }
-  if (valueIdx === -1) return null
-  const value = parseFloat(toks[valueIdx])
-  if (!isFinite(value)) return null
-
-  // Unit, if any, sits in the token immediately after the value ("145 mg/dl").
-  let unit: string | null = null
-  const afterTok = toks[valueIdx + 1]
-  if (afterTok && SINGLE_UNIT_RE.test(afterTok)) unit = prettifyUnit(afterTok)
+  // Value (+ unit) from the right, preferring a number that carries a unit over
+  // a digit buried in the test name — e.g. "ESR (1 Hour) … 73mm 12-20" → 73 mm,
+  // not 1. Handles the unit glued to the number ("73mm") or as the next token.
+  const { value, unit, index: valueIdx } = extractValueUnit(region)
+  if (value === null || valueIdx === -1) return null
 
   // Name = everything before the value token; must carry real letters.
+  const toks = region.split(' ')
   let name = toks.slice(0, valueIdx).join(' ').trim()
   name = name.replace(TRAILING_SPECIMEN_RE, '').trim()
   const alphaCount = (name.match(/[a-z]/g) ?? []).length
   if (alphaCount < 3 || name.length < 3 || name.length > 48) return null
   if (!/[a-z]{3,}/.test(name)) return null
 
-  // Prefer the original (cased, punctuated) name for display.
-  const valTok = toks[valueIdx]
-  const idx = rawLine.indexOf(valTok)
-  let displayName = idx > 2 ? rawLine.slice(0, idx).trim() : name
-  displayName = displayName.replace(/[\s:,\-]+$/, '').replace(TRAILING_SPECIMEN_RE, '').trim()
+  // Prefer the original (cased, punctuated) name for display. Cut rawLine just
+  // before the value — searching only the part before the reference range, so a
+  // value that recurs inside the range (e.g. 20 in "12 - 20") can't fool us.
+  const numStr = String(value)
+  const rawRange = rawLine.match(RANGE_RE)
+  const rawRegion = rawRange && rawRange.index !== undefined ? rawLine.slice(0, rawRange.index) : rawLine
+  const cut = rawRegion.lastIndexOf(numStr)
+  let displayName = cut > 2 ? rawLine.slice(0, cut).trim() : name
+  displayName = displayName.replace(/[\s:,\-–—(]+$/, '').replace(TRAILING_SPECIMEN_RE, '').trim()
   if (displayName.length < 3 || displayName.length > 60) displayName = name
 
   return {
@@ -467,12 +486,20 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
           valueText = raw.charAt(0).toUpperCase() + raw.slice(1)
           confidence = 'medium'
         }
-      } else {
-        // Numeric — read value from the RIGHT (last number before the range) so
-        // that test names containing digits don't steal the result. Example:
-        // "ESR (1 Hour) (Modified Westergren Method) 73 mm 12-20" → value=73,
-        // not value=1. Mirrors the same decision in genericRow.
-        value = lastValue(beforeRange)
+      }
+
+      // Prefer the unit actually printed on the PDF over the dictionary's
+      // defaultUnit (e.g. "Neutrophils 58.8 % 40-80" → "%", not the LOINC
+      // absolute-count default "10*3/µL").
+      let pdfUnit: string | null = null
+
+      if (def.valueType !== 'ordinal' && def.valueType !== 'qualitative') {
+        // Numeric — read the value (+ its unit) from the RIGHT, preferring a
+        // number that carries a unit over a digit buried in the test name. So
+        // "ESR (1 Hour) … 73mm 12-20" → 73 mm, not 1.
+        const vu = extractValueUnit(beforeRange)
+        value = vu.value
+        pdfUnit = vu.unit
         // Wrapped layout: a long test name pushes the value onto the next line
         // (e.g. "TSH-THYROID STIMULATING HORMONE," then "2.71 uIU/mL"). If this
         // row had no value but the next line begins with a number, borrow it.
@@ -482,22 +509,6 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
         }
         if (value !== null && refLow !== null) confidence = 'high'
         else if (value !== null) confidence = 'medium'
-      }
-
-      // Prefer the unit actually printed on the PDF over the dictionary's defaultUnit.
-      // Example: "Neutrophils 58.8 % 40-80" should yield "%" not the LOINC defaultUnit
-      // "10*3/µL" (which is for the absolute-count variant of the same marker).
-      // Scan right-to-left (matches the lastValue direction) to find the value
-      // token, then take the token immediately after it as the unit.
-      let pdfUnit: string | null = null
-      if (value !== null) {
-        const brToks = beforeRange.trim().split(' ')
-        for (let i = brToks.length - 1; i >= 0; i--) {
-          if (PURE_NUMBER_RE.test(brToks[i]) && Math.abs(parseFloat(brToks[i]) - value) < 1e-9) {
-            const tok = brToks[i + 1]
-            if (tok && SINGLE_UNIT_RE.test(tok)) { pdfUnit = prettifyUnit(tok); break }
-          }
-        }
       }
 
       candidates.push({

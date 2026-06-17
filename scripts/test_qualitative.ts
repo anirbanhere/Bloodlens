@@ -41,6 +41,10 @@ const sample = [
   'TEST DESCRIPTION WITH METHODOLOGY    RESULT    UNIT    BIOLOGICAL REF.INTERVAL',
   'ESR (1 Hour) (Modified Westergren Method) 73 mm 12-20',
   'Manual - Westergrens method',
+  // A non-dictionary marker with a digit in its NAME and the value glued to its
+  // unit ("73mm") — reproduces the real-report bug on the generic path, where
+  // the naive "last bare number" would wrongly pick the "1" in "(1 Hour)".
+  'SOME NOVEL TEST (1 Hour Westergren) 73mm 12-20',
   'PERIPHERAL SMEAR EXAMINATION',
   'RBCs Normocytic normochromic RBCs. No schistocytes/ nucleated',
   'RBCs seen. No Haemoparasites seen.',
@@ -73,6 +77,12 @@ const esr = candidates.find((c) => c.markerName === 'ESR')
 assert('ESR value is 73 (not 1)', esr?.suggestedValue === 73)
 assert('ESR unit is mm', esr?.suggestedUnit === 'mm')
 assert('ESR range 12-20', esr?.suggestedReferenceLow === 12 && esr?.suggestedReferenceHigh === 20)
+
+// Generic path, value glued to unit ("73mm"): must read 73 + mm, not the "1" in the name.
+const glued = candidates.find((c) => /novel test/i.test(c.markerName))
+assert('Glued generic value is 73 (not 1)', glued?.suggestedValue === 73)
+assert('Glued generic unit is mm', glued?.suggestedUnit === 'mm')
+assert('Glued generic name not truncated at "("', !!glued && !glued.markerName.trim().endsWith('('))
 
 const rbc = candidates.find((c) => c.markerName === 'Peripheral Smear — RBCs')
 assert('Smear RBCs captured', !!rbc && rbc.suggestedValue === null)

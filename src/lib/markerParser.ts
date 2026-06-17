@@ -285,12 +285,26 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
         else if (value !== null) confidence = 'medium'
       }
 
+      // Prefer the unit actually printed on the PDF over the dictionary's defaultUnit.
+      // Example: "Neutrophils 58.8 % 40-80" should yield "%" not the LOINC defaultUnit
+      // "10*3/µL" (which is for the absolute-count variant of the same marker).
+      let pdfUnit: string | null = null
+      if (value !== null) {
+        const brToks = beforeRange.trim().split(' ')
+        for (let i = 0; i < brToks.length; i++) {
+          if (PURE_NUMBER_RE.test(brToks[i]) && Math.abs(parseFloat(brToks[i]) - value) < 1e-9) {
+            const tok = brToks[i + 1]
+            if (tok && SINGLE_UNIT_RE.test(tok)) { pdfUnit = prettifyUnit(tok); break }
+          }
+        }
+      }
+
       candidates.push({
         markerKey: def.markerKey,
         markerName: def.canonicalName,
         suggestedValue: value,
         suggestedValueText: valueText,
-        suggestedUnit: def.defaultUnit ?? null,
+        suggestedUnit: pdfUnit ?? def.defaultUnit ?? null,
         suggestedReferenceLow: refLow,
         suggestedReferenceHigh: refHigh,
         confidence,

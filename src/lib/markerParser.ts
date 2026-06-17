@@ -106,6 +106,167 @@ function lastValue(text: string): number | null {
   return null
 }
 
+// ── Qualitative free-text sections ──────────────────────────────────────────
+// Some report sections are pure prose with no numeric values — a peripheral
+// blood smear, a bone-marrow study, etc. They print a section header, then a
+// few labelled sub-findings (RBCs / WBCs / Platelets / Impression), each a
+// sentence or two that often wraps across reconstructed lines. We capture each
+// labelled sub-finding as a value-less qualitative candidate so they're saved
+// and shown like "Peripheral Smear — RBCs : Normocytic normochromic …".
+
+/** A line that opens a qualitative findings section (matched on normalised text). */
+const QUAL_SECTION_RE =
+  /^(?:peripheral\s+(?:blood\s+)?smear(?:\s+(?:examination|study|report))?|smear\s+examination|bone\s+marrow(?:\s+(?:examination|study|aspirate))?)\b/i
+
+/** A short sub-label inside such a section, plus any trailing separators. Whether
+ *  it's really a new sub-label (vs a wrapped continuation that merely starts with
+ *  "RBCs seen…") is decided in code by checking the following char's CASE — which
+ *  can't be done in this regex because the /i flag would make [A-Z] match lowercase. */
+const SECTION_LABEL_RE =
+  /^(rbcs?|red(?:\s+blood)?\s+cells?|wbcs?|white(?:\s+blood)?\s+cells?|platelets?|plt|impression|morphology|differential(?:\s+count)?|interpretation|conclusion|advice|remarks?|comments?|notes?|findings?)\b[\s:.\-–—]*/i
+
+/** Markers that a qualitative section has ended (end-of-report rules / dividers). */
+const SECTION_END_RE = /(?:\*{2,}|end of (?:the )?report|^[-_]{3,}$)/i
+
+/** Strong, unambiguous qualitative result phrases for standalone (non-section)
+ *  rows like "CRYOGLOBULINS (QUALITATIVE) ASSAY  Not detected". Deliberately
+ *  narrow (no "normal/present/seen") to avoid catching prose. */
+const QUAL_STANDALONE_RE =
+  /\b(not\s+detected|detected|positive|negative|reactive|non[\s-]?reactive|no\s+growth|sterile|not\s+isolated|isolated)\b/i
+
+/** Title for the section, from its (raw) header line. */
+function sectionTitleFrom(raw: string): string {
+  return /bone\s+marrow/i.test(raw) ? 'Bone Marrow' : 'Peripheral Smear'
+}
+
+/** Pretty-print a matched sub-label: RBCs/WBCs/Platelets stay conventional, rest Title Case. */
+function prettyLabel(s: string): string {
+  const t = s.trim().toLowerCase()
+  if (/^rbc|^red/.test(t)) return 'RBCs'
+  if (/^wbc|^white/.test(t)) return 'WBCs'
+  if (/^plt|^platelet/.test(t)) return 'Platelets'
+  return t.replace(/\b\w/g, (m) => m.toUpperCase())
+}
+
+/** True if a line looks like tabular numeric data (value + range/unit) — i.e.
+ *  the qualitative section is over and we're back to ordinary markers. */
+function looksLikeNumericRow(norm: string): boolean {
+  if (RANGE_RE.test(norm)) return true
+  return UNIT_RE.test(norm) && /\d/.test(norm)
+}
+
+/**
+ * Capture a qualitative section starting at its header line. Walks forward,
+ * turning each labelled sub-finding into a value-less qualitative candidate and
+ * folding wrapped continuation lines into the current finding. Stops at an
+ * end-of-report marker, another section header, or (when no finding is open) a
+ * numeric data row. Returns the captured candidates and the index of the last
+ * line consumed (the line that stopped us is left for the main loop to handle).
+ */
+function captureQualSection(
+  lines: string[],
+  headerIdx: number
+): { items: Array<Omit<ParsedCandidate, 'sourceText'> & { sourceText: string }>; nextIdx: number } {
+  const sectionTitle = sectionTitleFrom(lines[headerIdx])
+  const items: Array<Omit<ParsedCandidate, 'sourceText'> & { sourceText: string }> = []
+  const MAX_LINES = 16 // safety budget so a malformed report can't run away
+  let current: { name: string; parts: string[]; source: string } | null = null
+
+  const flush = () => {
+    if (!current) return
+    const text = current.parts.join(' ').replace(/\s+/g, ' ').trim()
+    if (text) {
+      items.push({
+        markerKey: null,
+        markerName: current.name,
+        suggestedValue: null,
+        suggestedValueText: text.slice(0, 400),
+        suggestedUnit: null,
+        suggestedReferenceLow: null,
+        suggestedReferenceHigh: null,
+        confidence: 'medium',
+        sourceText: current.source.slice(0, 200),
+      })
+    }
+    current = null
+  }
+
+  let i = headerIdx + 1
+  for (; i < lines.length && i <= headerIdx + MAX_LINES; i++) {
+    const raw = stripLeadingSerial(lines[i].trim())
+    if (!raw) continue
+    const norm = normalise(raw)
+
+    // A real sub-label is the label word followed by a sub-finding that starts
+    // with a capital/digit/paren (checked case-sensitively). A wrapped line like
+    // "RBCs seen…" matches the label word but is followed by lowercase → it's a
+    // continuation of the previous finding, not a new one.
+    const labelMatch = raw.match(SECTION_LABEL_RE)
+    const rest = labelMatch ? raw.slice(labelMatch[0].length) : ''
+    const isNewLabel = !!labelMatch && (rest === '' || /^[A-Z0-9(]/.test(rest))
+
+    if (isNewLabel) {
+      // A labelled sub-finding — always part of the section, even if it happens
+      // to contain a number (e.g. an absolute count inside the Impression text).
+      flush()
+      current = {
+        name: `${sectionTitle} — ${prettyLabel(labelMatch![1])}`,
+        parts: rest.trim() ? [rest.trim()] : [],
+        source: raw,
+      }
+      continue
+    }
+
+    // Not a new label: a continuation of the current finding, or the section's end.
+    if (SECTION_END_RE.test(raw) || QUAL_SECTION_RE.test(norm)) break
+    if (!current && looksLikeNumericRow(norm)) break
+
+    if (current) current.parts.push(raw)
+    // else: stray unlabelled line before any sub-label — ignore it.
+  }
+
+  flush()
+  return { items, nextIdx: i - 1 }
+}
+
+/**
+ * Standalone qualitative row (not inside a section): a test name followed by a
+ * strong result phrase and no numeric value — e.g. "CRYOGLOBULINS (QUALITATIVE)
+ * ASSAY  Not detected". Captured as a value-less qualitative candidate. Kept
+ * conservative (strong phrases only, must sit at the end of the line) so it
+ * doesn't fire on ordinary prose.
+ */
+function genericQualitativeRow(
+  rawLine: string,
+  normLine: string
+): Omit<ParsedCandidate, 'sourceText'> | null {
+  if (META_RE.test(normLine)) return null
+  if (firstValue(normLine) !== null) return null // has a number → not purely qualitative
+  const m = rawLine.match(QUAL_STANDALONE_RE)
+  if (!m || m.index === undefined) return null
+
+  // The phrase must be the result column: little or nothing follows it.
+  const trailing = rawLine.slice(m.index + m[0].length).trim()
+  if (trailing.length > 25) return null
+
+  const name = rawLine.slice(0, m.index).replace(/[\s:,\-–—]+$/, '').trim()
+  const alphaCount = (name.match(/[A-Za-z]/g) ?? []).length
+  if (alphaCount < 3 || name.length < 3 || name.length > 60) return null
+  if (name.split(/\s+/).length > 7) return null // a test name, not a sentence
+
+  const value = rawLine.slice(m.index).trim()
+  return {
+    markerKey: null,
+    markerName: name,
+    suggestedValue: null,
+    suggestedValueText: value.charAt(0).toUpperCase() + value.slice(1),
+    suggestedUnit: null,
+    suggestedReferenceLow: null,
+    suggestedReferenceHigh: null,
+    confidence: 'low',
+  }
+}
+
 /**
  * Generic row extractor — the safety net for tests NOT in the dictionary.
  *
@@ -228,6 +389,17 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
     const normLine = normalise(line)
     const nextNorm = normalise(lines[lineIdx + 1] ?? '')
 
+    // Qualitative free-text section (peripheral smear, bone marrow): capture its
+    // labelled sub-findings as value-less candidates and skip past the lines we
+    // consumed. Done before alias matching so the section's prose isn't mined
+    // for spurious numeric markers.
+    if (QUAL_SECTION_RE.test(normLine) && firstValue(normLine) === null) {
+      const { items, nextIdx } = captureQualSection(lines, lineIdx)
+      for (const it of items) candidates.push(it)
+      lineIdx = nextIdx
+      continue
+    }
+
     // "/hpf" (per high-power field) marks a urine-microscopy count row. Such
     // rows only match microscopy markers; everywhere else, microscopy markers
     // are excluded — this resolves the urine-vs-blood WBC/RBC alias collision.
@@ -345,12 +517,16 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
       break // one marker per row
     }
 
-    // No dictionary marker claimed this row — try the generic extractor so
-    // unknown tests (C3, C4, anything) are still captured for user review.
+    // No dictionary marker claimed this row — try the generic numeric extractor
+    // (C3, C4, anything), then a conservative standalone-qualitative extractor
+    // (e.g. "… ASSAY  Not detected"), so unknown rows are still captured.
     if (!matched) {
       const generic = genericRow(line, normLine)
       if (generic) {
         candidates.push({ ...generic, sourceText: line.slice(0, 200) })
+      } else {
+        const qual = genericQualitativeRow(line, normLine)
+        if (qual) candidates.push({ ...qual, sourceText: line.slice(0, 200) })
       }
     }
   }

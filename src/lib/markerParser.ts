@@ -56,7 +56,7 @@ const PURE_NUMBER_RE = /^-?\d+(?:\.\d+)?$/
 /** Recognised lab unit tokens — used to anchor the generic extractor and to
  *  read the unit that sits between the value and the reference range. */
 const UNIT_ALT =
-  '%|mg\\/d?l|g\\/d?l|mg\\/l|g\\/l|mmol\\/l|µmol\\/l|umol\\/l|mol\\/l|meq\\/l|u\\/l|iu\\/l|miu\\/l|µiu\\/ml|uiu\\/ml|ng\\/ml|pg\\/ml|ng\\/dl|µg\\/dl|ug\\/dl|µg\\/l|ug\\/l|fl|pg|mm\\/hr|cells\\/µl|cells\\/ul|cells\\/mm3|cells\\/mm³|million\\/µl|million\\/ul|lakh\\/µl|\\/hpf|\\/µl|\\/ul|\\/mm3|\\/mm³'
+  '%|mg\\/d?l|g\\/d?l|mg\\/l|g\\/l|mmol\\/l|µmol\\/l|umol\\/l|mol\\/l|meq\\/l|u\\/l|iu\\/l|miu\\/l|µiu\\/ml|uiu\\/ml|ng\\/ml|pg\\/ml|ng\\/dl|µg\\/dl|ug\\/dl|µg\\/l|ug\\/l|fl|pg|mm\\/hr|mm|cells\\/µl|cells\\/ul|cells\\/mm3|cells\\/mm³|million\\/µl|million\\/ul|lakh\\/µl|\\/hpf|\\/µl|\\/ul|\\/mm3|\\/mm³'
 const UNIT_RE = new RegExp(`(?:^| )(?:${UNIT_ALT})(?: |$)`)
 const SINGLE_UNIT_RE = new RegExp(`^(?:${UNIT_ALT})$`)
 
@@ -80,11 +80,26 @@ const META_RE = /\b(?:age|years|yrs|d\.?o\.?b|date|page|phone|mobile|sample|spec
 /** A trailing specimen word adds nothing to a marker name; trim it for display. */
 const TRAILING_SPECIMEN_RE = /[\s,]+(?:serum|plasma|ser\/plas|blood|whole blood|urine|csf)\s*$/i
 
-/** First standalone numeric token in a string (rejects dates, IDs, ages, ranges). */
+/** First standalone numeric token in a string. */
 function firstValue(text: string): number | null {
   for (const tok of text.split(' ')) {
     if (PURE_NUMBER_RE.test(tok)) {
       const n = parseFloat(tok)
+      if (isFinite(n)) return n
+    }
+  }
+  return null
+}
+
+/** Last standalone numeric token in a string.
+ *  Used for dictionary matches: the value is the last number before the range,
+ *  because test names can contain digits (e.g. "ESR (1 Hour) … 73 mm 12-20"
+ *  must yield 73, not 1). */
+function lastValue(text: string): number | null {
+  const toks = text.split(' ')
+  for (let i = toks.length - 1; i >= 0; i--) {
+    if (PURE_NUMBER_RE.test(toks[i])) {
+      const n = parseFloat(toks[i])
       if (isFinite(n)) return n
     }
   }
@@ -263,17 +278,29 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
           if (n !== null) { value = n; confidence = 'medium' }
         }
       } else if (def.valueType === 'qualitative') {
-        // Descriptive (colour, clarity): first token after the name is the value.
+        // Descriptive result (colour, clarity, "Not detected", "Positive" …):
+        // capture up to 5 words, stopping at the first digit. This handles
+        // single-word ("Negative"), two-word ("Not detected"), and short phrases
+        // ("Normocytic normochromic RBCs") while ignoring trailing numeric noise.
         refLow = null
         refHigh = null
-        const tok = rest.split(' ').find((t) => t.length > 0) ?? ''
-        if (tok) {
-          valueText = tok.charAt(0).toUpperCase() + tok.slice(1)
+        const words = rest.split(' ').filter((t) => t.length > 0)
+        const phrase: string[] = []
+        for (const w of words) {
+          if (/\d/.test(w) || phrase.length >= 5) break
+          phrase.push(w)
+        }
+        const raw = phrase.join(' ')
+        if (raw) {
+          valueText = raw.charAt(0).toUpperCase() + raw.slice(1)
           confidence = 'medium'
         }
       } else {
-        // Numeric
-        value = firstValue(beforeRange)
+        // Numeric — read value from the RIGHT (last number before the range) so
+        // that test names containing digits don't steal the result. Example:
+        // "ESR (1 Hour) (Modified Westergren Method) 73 mm 12-20" → value=73,
+        // not value=1. Mirrors the same decision in genericRow.
+        value = lastValue(beforeRange)
         // Wrapped layout: a long test name pushes the value onto the next line
         // (e.g. "TSH-THYROID STIMULATING HORMONE," then "2.71 uIU/mL"). If this
         // row had no value but the next line begins with a number, borrow it.
@@ -288,10 +315,12 @@ export function parseMarkers(rawText: string, definitions: MarkerDef[]): ParsedC
       // Prefer the unit actually printed on the PDF over the dictionary's defaultUnit.
       // Example: "Neutrophils 58.8 % 40-80" should yield "%" not the LOINC defaultUnit
       // "10*3/µL" (which is for the absolute-count variant of the same marker).
+      // Scan right-to-left (matches the lastValue direction) to find the value
+      // token, then take the token immediately after it as the unit.
       let pdfUnit: string | null = null
       if (value !== null) {
         const brToks = beforeRange.trim().split(' ')
-        for (let i = 0; i < brToks.length; i++) {
+        for (let i = brToks.length - 1; i >= 0; i--) {
           if (PURE_NUMBER_RE.test(brToks[i]) && Math.abs(parseFloat(brToks[i]) - value) < 1e-9) {
             const tok = brToks[i + 1]
             if (tok && SINGLE_UNIT_RE.test(tok)) { pdfUnit = prettifyUnit(tok); break }

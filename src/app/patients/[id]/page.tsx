@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import {
   Pencil, Table2, Download, FileText, Plus, ChevronRight,
-  Activity, AlertTriangle, FlaskConical, CalendarDays, FileBarChart,
+  Activity, AlertTriangle, FlaskConical, CalendarDays, FileBarChart, ClipboardList,
 } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import Card from '@/components/ui/Card'
@@ -24,6 +24,7 @@ type MarkerSummary = {
   latestDate: string
   previous: number | null
   status: string | null
+  valueType: string
 }
 
 export default async function PatientPage({
@@ -51,6 +52,7 @@ export default async function PatientPage({
   if (!patient) notFound()
 
   const categoryByKey = new Map(definitions.map((d) => [d.markerKey, d.category]))
+  const valueTypeByKey = new Map(definitions.map((d) => [d.markerKey, d.valueType]))
 
   // Latest + previous value per marker
   const byMarker = new Map<string, typeof results>()
@@ -72,12 +74,21 @@ export default async function PatientPage({
       latestDate: latest.report.reportDate,
       previous: previous?.value ?? null,
       status: latest.status,
+      valueType: valueTypeByKey.get(key) ?? 'numeric',
     }
   })
 
-  // Group by category
+  // Qualitative findings (descriptive free text — smear, impressions, "Not
+  // detected") aren't trendable and need room to wrap, so they're shown in their
+  // own notes card rather than crammed into the compact numeric category rows.
+  const qualitative = summaries
+    .filter((s) => s.valueType === 'qualitative' && (s.latestText ?? '').trim())
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const quantitative = summaries.filter((s) => s.valueType !== 'qualitative')
+
+  // Group the numeric/ordinal markers by category for the dashboard cards.
   const byCategory = new Map<string, MarkerSummary[]>()
-  for (const s of summaries) {
+  for (const s of quantitative) {
     const cat = categoryByKey.get(s.markerKey) ?? 'Other'
     const list = byCategory.get(cat) ?? []
     list.push(s)
@@ -198,6 +209,34 @@ export default async function PatientPage({
             )
           })}
         </div>
+      )}
+
+      {/* Qualitative findings — descriptive free text, wraps naturally */}
+      {qualitative.length > 0 && (
+        <Card className="p-5 mb-8">
+          <h3 className="font-semibold text-sm text-slate-700 flex items-center gap-2 mb-4">
+            <ClipboardList size={15} className="text-brand-400" />
+            Observations &amp; notes
+          </h3>
+          <ul className="space-y-4">
+            {qualitative.map((q) => (
+              <li key={q.markerKey} className="border-l-2 border-brand-100 pl-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <Link
+                    href={`/patients/${patient.id}/markers/${q.markerKey}`}
+                    className="font-medium text-sm text-slate-700 hover:text-brand-600"
+                  >
+                    {q.name}
+                  </Link>
+                  <span className="text-xs text-slate-400 whitespace-nowrap shrink-0">{q.latestDate}</span>
+                </div>
+                <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap break-words leading-relaxed">
+                  {q.latestText}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
 
       <h2 className="font-semibold text-slate-700 mb-3">Reports</h2>

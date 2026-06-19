@@ -47,9 +47,16 @@ export default async function SummaryPage({
 
   const { patient, markers, outsideRangeCount, latestReportDate, previousReportDate, totalReports } = summary
 
-  // Group markers by category
+  // Qualitative findings (descriptive free text) don't fit the numeric latest/
+  // previous/change/range columns — pull them into their own wrapping section.
+  const qualitative = markers.filter(
+    (m) => m.valueType === 'qualitative' && (m.latest?.valueText ?? '').trim()
+  )
+  const quantitative = markers.filter((m) => m.valueType !== 'qualitative')
+
+  // Group the numeric/ordinal markers by category for the comparison tables.
   const byCategory = new Map<string, typeof markers>()
-  for (const m of markers) {
+  for (const m of quantitative) {
     if (!byCategory.has(m.category)) byCategory.set(m.category, [])
     byCategory.get(m.category)!.push(m)
   }
@@ -173,6 +180,31 @@ export default async function SummaryPage({
           </table>
         </div>
       ))}
+
+      {/* Qualitative findings — descriptive observations, full text */}
+      {qualitative.length > 0 && (
+        <div className="bg-surface rounded-card border border-slate-200/80 shadow-card mb-4 overflow-hidden print-page-break">
+          <div className="px-5 py-3 border-b border-slate-100">
+            <h2 className="font-medium text-slate-700">Observations &amp; notes</h2>
+          </div>
+          <ul className="divide-y divide-slate-50">
+            {qualitative
+              .slice()
+              .sort((a, b) => a.markerName.localeCompare(b.markerName))
+              .map((m) => (
+                <li key={m.markerKey} className="px-5 py-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-medium text-sm text-slate-700">{m.markerName}</span>
+                    <span className="text-xs text-slate-400 whitespace-nowrap shrink-0">{m.latest?.date}</span>
+                  </div>
+                  <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap break-words leading-relaxed">
+                    {m.latest?.valueText}
+                  </p>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
 
       {markers.length === 0 && (
         <p className="text-sm text-slate-400 mt-4">No marker data recorded yet.</p>

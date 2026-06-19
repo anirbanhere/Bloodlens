@@ -9,6 +9,7 @@ export interface MarkerSummaryRow {
   markerKey: string
   markerName: string
   category: string
+  valueType: string // numeric | ordinal | qualitative
   unit: string | null
   latest: { value: number | null; valueText: string | null; date: string; status: string | null; referenceLow: number | null; referenceHigh: number | null } | null
   previous: { value: number | null; valueText: string | null; date: string } | null
@@ -87,6 +88,7 @@ export async function generatePatientSummary(patientId: string): Promise<Patient
       markerKey,
       markerName: latest.markerName,
       category: def?.category ?? 'General',
+      valueType: def?.valueType ?? 'numeric',
       unit: latest.unit ?? def?.defaultUnit ?? null,
       latest: {
         value: latest.value,

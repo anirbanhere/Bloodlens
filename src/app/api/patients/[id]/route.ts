@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { deleteUpload } from '@/lib/storage'
 
 export async function GET(
   _request: Request,
@@ -40,6 +41,19 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+
+  const patient = await prisma.patient.findUnique({ where: { id } })
+  if (!patient) return Response.json({ error: 'Patient not found' }, { status: 404 })
+
+  // Remove the patient's uploaded files from disk before the DB rows cascade
+  // away (the cascade deletes ReportFile rows but not the physical files).
+  const files = await prisma.reportFile.findMany({
+    where: { report: { patientId: id } },
+    select: { filePath: true },
+  })
+  await Promise.allSettled(files.map((f) => deleteUpload(f.filePath)))
+
+  // Cascade-deletes reports, marker results, files, extractions and health events.
   await prisma.patient.delete({ where: { id } })
   return Response.json({ ok: true })
 }

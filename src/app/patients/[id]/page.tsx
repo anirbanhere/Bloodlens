@@ -11,6 +11,7 @@ import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import StatCard from '@/components/ui/StatCard'
 import StatusDot from '@/components/ui/StatusDot'
+import DeletePatientButton from '@/components/DeletePatientButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -125,6 +126,11 @@ export default async function PatientPage({
             <Button href={`/reports/new?patientId=${patient.id}`} size="sm" icon={<Plus size={15} />}>
               Add report
             </Button>
+            <DeletePatientButton
+              patientId={patient.id}
+              patientName={patient.name}
+              reportCount={patient.reports.length}
+            />
           </>
         }
       />
